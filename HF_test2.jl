@@ -1,16 +1,16 @@
+using LinearAlgebra
+using Printf
+
 struct PGTF
 	alpha::Float64
 	coeff::Float64
 	norms::Float64
 end
 
-struct Atom
-	Z::Int
-	center::NTuple{3, Float64}
-end
-
-struct CGTF
+struct Basis
 	GTFs::Vector{PGTF}
+	Center::NTuple{3, Float64}
+	Z::Int64
 end
 
 function NormalizePGTF(alpha::Float64)
@@ -26,27 +26,51 @@ STO6G4=PGTF(0.6259552659e00, 0.3705627997e+00)
 STO6G5=PGTF(0.2430767471e00, 0.4164915298e+00)
 STO6G6=PGTF(0.1001124280e00, 0.1303340841e+00)
 
-STO6GH=CGTF([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6])
+H1Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, -0.529), 1)
+H2Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, +0.529), 1)
 
-struct AtomicBasis
-	atom::Atom
-	basis::Vector{CGTF}
+BasisSet=[H1Basis1s, H2Basis1s]
+
+
+function STij(GTF1::Basis, GTF2::Basis)
+	Sij=0.0
+	Tij=0.0
+	R1=GTF1.Center
+	R2=GTF2.Center
+	R12=sqrt((R1[1]-R2[1])^2+(R1[2]-R2[2])^2+(R1[3]-R2[3])^2)
+	for pgtf1 in GTF1.GTFs
+		for pgtf2 in GTF2.GTFs
+			alpha1=pgtf1.alpha
+			alpha2=pgtf2.alpha
+			p=alpha1+alpha2
+			m=alpha1*alpha2/p
+			S00=(π/p)^(3/2)*exp(-m*R12^2)
+			Sij+=pgtf1.coeff*pgtf2.coeff*pgtf1.norms*pgtf2.norms*S00
+			Tij+=pgtf1.coeff*pgtf2.coeff*pgtf1.norms*pgtf2.norms*m*(3-2*m*R12^2)*S00
+		end
+	end
+	return Sij, Tij
 end
 
 
-H1=Atom(1, (0.0, 0.0, -0.529))
-H2=Atom(1, (0.0, 0.0, +0.529))
-
-H1AtomicBasis=AtomicBasis(H1, [STO6GH])
-H2AtomicBasis=AtomicBasis(H2, [STO6GH])
 
 
-function Sij(Atom1::Atom, Atom2::Atom, GTF1::CGTF, GTF2::CGTF)
-	println(length(GTF1.GTFs))
-	println(length(GTF2.GTFs))
-end
 
-Sij(H1, H2, STO6GH, STO6GH)
+
+
+
+
+
+
+
+
+
+
+
+Num=length(BasisSet)
+
+S=[STij(BasisSet[i], BasisSet[j])[1] for i in 1:Num, j in 1:Num]
+T=[STij(BasisSet[i], BasisSet[j])[2] for i in 1:Num, j in 1:Num]
 
 
 #=
