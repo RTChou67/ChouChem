@@ -59,14 +59,6 @@ end
 
 
 
-
-
-
-
-
-
-
-
 Num=length(BasisSet)
 
 S=[STij(BasisSet[i], BasisSet[j])[1] for i in 1:Num, j in 1:Num]
