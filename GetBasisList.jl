@@ -3,7 +3,7 @@ using Printf
 
 
 module GetBasisList
-using ..Definitions: PGTF, CGTF, Basis, Atom, CGTF
+using ..Definitions: PGTF, CGTF, Basis, Atom, CGTF_from_parser
 export generate_basis_list, get_basis_set
 # --- 2. 基组库的按需加载系统 ---
 
@@ -78,7 +78,6 @@ function generate_basis_list(molecule::Vector{Atom})
 	end
 
 	println("--- 基函数列表生成完毕 ---\n")
-	# 返回最终的列表
 	return BasisList
 end
 

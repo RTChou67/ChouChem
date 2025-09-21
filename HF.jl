@@ -26,7 +26,7 @@ NNum=length(molecule)
 println(BasisSet)
 
 
-
+#=
 function STVij(GTF1::Basis, GTF2::Basis, AllAtom::Vector{Atom})
 	Sij=0.0
 	Tij=0.0
@@ -113,7 +113,7 @@ end
 
 println(BasisSet[1])
 
-#=
+
 S=[STVij(BasisSet[i], BasisSet[j], molecule)[1] for i in 1:Num, j in 1:Num]
 T=[STVij(BasisSet[i], BasisSet[j], molecule)[2] for i in 1:Num, j in 1:Num]
 V=[STVij(BasisSet[i], BasisSet[j], molecule)[3] for i in 1:Num, j in 1:Num]
