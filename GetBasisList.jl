@@ -83,32 +83,3 @@ function generate_basis_list(molecule::Vector{Atom})
 end
 
 end
-
-#=
-# --- 4. 使用示例 ---
-
-# 定义一个水分子
-water_molecule = [
-	Atom("O", 8, "STO-3G", (0.0, 0.0, 0.116)),
-	Atom("H", 1, "STO-3G", (0.757, 0.0, -0.464)),
-	Atom("H", 1, "STO-3G", (-0.757, 0.0, -0.464)),
-]
-
-# 调用函数并获取返回的列表
-MyBasisList = generate_basis_list(water_molecule)
-print(MyBasisList)
-# 验证返回的结果
-println("--- 验证返回的 BasisList ---")
-println("列表类型: ", typeof(MyBasisList))
-println("列表中的基函数总数: ", length(MyBasisList))
-
-if !isempty(MyBasisList)
-	println("\n第一个基函数示例:")
-	println("  类型: ", MyBasisList[1].Type)
-	println("  中心坐标: ", MyBasisList[1].position) # 应该是氧原子的坐标
-
-	println("\n最后一个基函数示例:")
-	println("  类型: ", MyBasisList[end].Type)
-	println("  中心坐标: ", MyBasisList[end].position) # 应该是第二个氢原子的坐标
-end
-=#
