@@ -32,12 +32,12 @@ STO6G4=PGTF(0.6259552659e00, 0.3705627997e+00)
 STO6G5=PGTF(0.2430767471e00, 0.4164915298e+00)
 STO6G6=PGTF(0.1001124280e00, 0.1303340841e+00)
 
-H1=Atom(1, (0.0, 0.0, -0.529))
-H2=Atom(1, (0.0, 0.0, +0.529))
+H1=Atom(1, (0.0, 0.0, -1.8897259886))
+H2=Atom(1, (0.0, 0.0, +1.8897259886))
 
 
-H1Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, -0.529), 1)
-H2Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, +0.529), 1)
+H1Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, -1.8897259886), 1)
+H2Basis1s=Basis([STO6G1, STO6G2, STO6G3, STO6G4, STO6G5, STO6G6], (0.0, 0.0, +1.8897259886), 1)
 
 BasisSet=[H1Basis1s, H2Basis1s]
 
@@ -134,26 +134,51 @@ T=[STVij(BasisSet[i], BasisSet[j], [H1, H2])[2] for i in 1:Num, j in 1:Num]
 V=[STVij(BasisSet[i], BasisSet[j], [H1, H2])[3] for i in 1:Num, j in 1:Num]
 ERI=[CalcERI(i, j, k, l) for i in 1:Num, j in 1:Num, k in 1:Num, l in 1:Num]
 Hcore=T+V
+F=Hcore
+
+MaxIter=100
+Threshold=1e-6
 
 
-
-
-
-#=
-Calc S
-Calc T
-Calc V
-Calc 2e
-Calc P
-for i in Iter:
-	Calc F
-	Calc X
-	Orthogonalize F=F'
-	F'C'=C'E
-	C=XC'
-	Calc P, E
-	if DeltaE<10e-8
+X=S^(-0.5)
+Fprime=X'*F*X
+E, Cprime=eigen(Fprime)
+C=X*Cprime
+P=[2*sum(C[i, m]*C[j, m] for m in 1:1) for i in 1:Num, j in 1:Num]
+for i in 1:MaxIter
+	global P, F, Fprime, E, Cprime, C, G
+	G=[sum(P[k, l]*(ERI[i, j, k, l]-0.5*ERI[i, k, j, l]) for k in 1:Num, l in 1:Num) for i in 1:Num, j in 1:Num]
+	F=Hcore+G
+	Fprime=X'*F*X
+	E, Cprime=eigen(Fprime)
+	C=X*Cprime
+	Pnew=[2*sum(C[i, m]*C[j, m] for m in 1:1) for i in 1:Num, j in 1:Num]
+	if norm(P-Pnew)<Threshold
 		break
 	end
+	P=Pnew
 end
-=#
+
+
+VNN = H1.Z * H2.Z / norm(H1.center .- H2.center)
+
+
+Ee = 0.5 * sum(P .* (Hcore + F))
+Etot = Ee + VNN
+
+
+Te = sum(P .* T)
+VNe = sum(P .* V)
+Vee = 0.5 * sum(P .* G)
+Etot_components = Te + VNe + Vee + VNN
+
+
+@printf("\n--- Molecular Structure ---\n")
+@printf("Atom 1: Z=%d, Position=(%+.3f, %+.3f, %+.3f) Å\n", H1.Z, H1.center[1]*0.52918, H1.center[2]*0.52918, H1.center[3]*0.52918)
+@printf("Atom 2: Z=%d, Position=(%+.3f, %+.3f, %+.3f) Å\n", H2.Z, H2.center[1]*0.52918, H2.center[2]*0.52918, H2.center[3]*0.52918)
+
+
+@printf("\n--- Final Energy Results ---\n")
+@printf("Total Energy      = %.10f Hartree\n", Etot)
+@printf("Electronic Energy = %.10f Hartree\n", Ee)
+@printf("Nuclear Repulsion =  %.10f Hartree\n", VNN)
