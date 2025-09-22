@@ -1,6 +1,7 @@
 using Printf
+
 include("Definitions.jl")
-using ..Definitions: PGTF, CGTF, Basis, Atom, CGTF_from_parser
+using ..Definitions: PGTF, CGTF, Basis, Atom
 
 const ELEMENTS = Dict(
 	"H" => 1, "He" => 2, "Li" => 3, "Be" => 4, "B" => 5, "C" => 6, "N" => 7, "O" => 8, "F" => 9, "Ne" => 10,
@@ -148,7 +149,7 @@ function WriteBasisLib(data::Dict, BasisName::String, OutputFile::String)
 
 			CGTFs = data[z]
 			for (CGTFIdx, CGTF) in enumerate(CGTFs)
-				print(f, "\t\tCGTF_from_parser($(CGTF.Type), [")
+				print(f, "\t\tCGTF($(CGTF.Type), [")
 				if !isempty(CGTF.GTFs)
 					println(f)
 					for (pgtf_idx, pgtf) in enumerate(CGTF.GTFs)

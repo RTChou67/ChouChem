@@ -3,7 +3,7 @@ using Printf
 
 
 module GetBasisList
-using ..Definitions: PGTF, CGTF, Basis, Atom, CGTF_from_parser
+using ..Definitions: PGTF, CGTF, Basis, Atom
 export generate_basis_list, get_basis_set
 # --- 2. 基组库的按需加载系统 ---
 
@@ -64,11 +64,11 @@ function generate_basis_list(molecule::Vector{Atom})
 		element_data = basis_set_data[atom.Z]
 
 		# 3. 遍历该原子的所有CGTF，并结合原子坐标创建新的 Basis 对象
-		for CGTF in element_data
+		for cgtf in element_data
 			# 核心步骤：将解析器中的数据与原子位置结合
 			new_basis_function = Basis(
-				CGTF.Type,
-				CGTF.GTFs,
+				cgtf.Type,
+				cgtf.GTFs,
 				atom.position,  # 使用当前原子的坐标
 			)
 			# 将新创建的基函数添加到总列表中

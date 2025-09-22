@@ -4,27 +4,52 @@ using SpecialFunctions
 
 include("Definitions.jl")
 include("GetBasisList.jl")
-using .Definitions: PGTF, CGTF, Basis, Atom, CGTF_from_parser
+include("CalcS.jl")
+using .Definitions: PGTF, CGTF, Basis, Atom
 using .GetBasisList: generate_basis_list, get_basis_set
-
+using .CalcS: Sij
 
 
 
 
 molecule = [
-	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.889726)),
-	#Atom("O", 8, "6-31G", (0.0, 0.0, 0.96)),
-	Atom("H", 1, "STO-3G", (0.0, 0.0, -1.889726)),
+	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.0)),
+	Atom("O", 8, "STO-3G", (0.0, +1.0, 0.0)),
+	Atom("H", 1, "STO-3G", (0.0, 0.0, -1.0)),
 ]
 
 BasisSet = generate_basis_list(molecule)
+
+
 Num=length(BasisSet)
 ENum=sum(atom.Z for atom in molecule)
 NNum=length(molecule)
 
+S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:Num, j in 1:Num]
 
-println(BasisSet)
+function print_formatted_matrix(matrix::Matrix{Float64})
+    n = size(matrix, 1)
+    labels = [string(i) for i in 1:n] # 动态生成标签 "1", "2", ...
+    
+    # 打印列标题
+    @printf("%-5s", "") # 左对齐的标签列
+    for j in 1:n
+        @printf("%10s", labels[j])
+    end
+    println()
+    println(repeat("-", 5 + 10*n)) # 打印分隔线
+    
+    # 打印矩阵内容
+    for i in 1:n
+        @printf("%-5s", labels[i] * "|") # 打印行标题和分隔符
+        for j in 1:n
+            @printf("%10.6f", matrix[i, j]) # 格式化浮点数
+        end
+        println()
+    end
+end
 
+print_formatted_matrix(S)
 
 #=
 function STVij(GTF1::Basis, GTF2::Basis, AllAtom::Vector{Atom})

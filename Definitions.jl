@@ -1,6 +1,6 @@
 module Definitions
 
-export PGTF, CGTF, Basis, Atom, CGTF_from_parser
+export PGTF, CGTF, Basis, Atom
 
 struct PGTF
 	alpha::Float64
@@ -26,9 +26,5 @@ struct Atom
 	position::NTuple{3, Float64}
 end
 
-struct CGTF_from_parser
-	Type::NTuple{3, Int64}
-	GTFs::Vector{PGTF}
-end
 
 end
