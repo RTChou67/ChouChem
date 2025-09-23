@@ -18,17 +18,35 @@ const ELEMENTS = Dict(
 
 const SHELL_TYPE = Dict(
 	"S" => [(0, 0, 0)],
-	"P" => [(0, 0, 1), (0, 1, 0), (1, 0, 0)],
-	"D" => [(0, 0, 2), (0, 1, 1), (0, 2, 0), (1, 0, 1), (1, 1, 0), (2, 0, 0)],
-	"F" => [(0, 0, 3), (0, 1, 2), (0, 2, 1), (0, 3, 0), (1, 0, 2), (1, 1, 1), (1, 2, 0), (2, 0, 1), (2, 1, 0), (3, 0, 0)],
+	"P" => [(1, 0, 0), (0, 1, 0), (0, 0, 1)], # 顺序通常是 Px, Py, Pz
+	"D" => [(2, 0, 0), (0, 2, 0), (0, 0, 2), (1, 1, 0), (1, 0, 1), (0, 1, 1)], # Dxx, Dyy, Dzz, Dxy, Dxz, Dyz
+	"F" => [(3, 0, 0), (0, 3, 0), (0, 0, 3), (1, 2, 0), (2, 1, 0), (1, 0, 2), (2, 0, 1), (0, 1, 2), (0, 2, 1), (1, 1, 1)], # Fxxx, Fyyy, Fzzz, Fxyy, Fxxy, ...
 )
 
 
+using SpecialFunctions
+function doublefactorial(m::Int)
+	if m <= 1
+		return 1.0
+	end
+	if isodd(m)
+		n = (m + 1) ÷ 2
+		return 2.0^n * gamma(n + 0.5) / sqrt(pi)
+	else
+		k = m ÷ 2
+		return 2.0^k * factorial(k)
+	end
+end
 
-# S轨道的归一化函数
-PTGFNorm(alpha::Float64) = (2 * alpha / π)^(3/4)
 
-# --- 核心函数 ---
+function normalize_primitive(alpha::Float64, l::NTuple{3, Int}; pure::Bool = false)
+	lx, ly, lz = l
+	L = lx + ly + lz
+	df_product = doublefactorial(2*lx - 1) * doublefactorial(2*ly - 1) * doublefactorial(2*lz - 1)
+	norm_const = (2 * alpha / pi)^(0.75) * sqrt((4 * alpha)^L / df_product)
+
+	return norm_const
+end
 
 function GetBasisName(filepath::String)
 	try

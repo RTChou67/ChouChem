@@ -1,7 +1,7 @@
 module CalcS
 
 using ..Definitions: PGTF, Basis
-using SpecialFunctions: binomial
+using SpecialFunctions: binomial, gamma
 
 export Sij
 
@@ -19,7 +19,6 @@ function double_factorial(m::Int)
 end
 
 function overlap_1D(l1::Int, l2::Int, A::Float64, B::Float64, alpha1::Float64, alpha2::Float64, p::Float64)
-	# 根据高斯乘积定理计算新中心 P 和相对位置 PA, PB
 	P = (alpha1 * A + alpha2 * B) / p
 	PA = P - A
 	PB = P - B
