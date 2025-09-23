@@ -18,9 +18,8 @@ using .CalcG: Gijkl
 
 
 MolInAng = [
-	Atom("H", 1, "STO-3G", (0.0, 0.0, +1)),
-	Atom("O", 8, "STO-3G", (0.0, +1, 0.0)),
-	Atom("H", 1, "STO-3G", (0.0, 0.0, -1)),
+	Atom("O", 8, "STO-3G", (0.0, 0.0, +1)),
+	Atom("O", 8, "STO-3G", (0.0, 0.0, -1)),
 ]
 
 Bohr2Ang=0.52917721092
@@ -42,7 +41,7 @@ ERI=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:Num, j
 
 
 
-#=
+
 function print_formatted_matrix(matrix::Matrix{Float64})
 	n = size(matrix, 1)
 	labels = [string(i) for i in 1:n] # 动态生成标签 "1", "2", ...
@@ -64,10 +63,22 @@ function print_formatted_matrix(matrix::Matrix{Float64})
 		println()
 	end
 end
+println("\nOverlap Matrix S:")
+print_formatted_matrix(S)
+println("\nKinetic Energy Matrix T:")
+print_formatted_matrix(T)
+println("\nNuclear Attraction Matrix V:")
+print_formatted_matrix(V)
+
 
 
 
 Hcore=T+V
+
+println("\nCore Hamiltonian Hcore:")
+print_formatted_matrix(Hcore)
+
+
 F=Hcore
 
 MaxIter=100
@@ -105,7 +116,7 @@ for i in 1:MaxIter
 end
 
 VNN = sum(Molecule[i].Z * Molecule[j].Z / sqrt(sum((Molecule[i].position .- Molecule[j].position) .^ 2)) for i in 1:NNum for j in (i+1):NNum)
-
+print_formatted_matrix(P)
 
 Ee = 0.5 * sum(P .* (Hcore + F))
 Etot = Ee + VNN
@@ -129,4 +140,3 @@ end
 @printf("Total Energy      = %.10f Hartree\n", Etot)
 @printf("Electronic Energy = %.10f Hartree\n", Ee)
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN)
-=#

@@ -32,7 +32,7 @@ function Hij_1D(Idx, l1::Int64, l2::Int64, R1D1::Float64, R1D2::Float64, alpha1,
 	elseif l1==0 && l2>=1
 		return PB1D*Hij_1D(Idx, 0, l2-1, R1D1, R1D2, alpha1, alpha2)+((l2-1)*Hij_1D(Idx, 0, l2-2, R1D1, R1D2, alpha1, alpha2)+Hij_1D(Idx-1, 0, l2-1, R1D1, R1D2, alpha1, alpha2))/(2*p)
 	elseif l1>=1
-		return PA1D*Hij_1D(Idx, l1-1, l2, R1D1, R1D2, alpha1, alpha2)+((l1-1)*Hij_1D(Idx, l1-2, l2, R1D1, R1D2, alpha1, alpha2)+l2*Hij_1D(Idx-1, l1-1, l2, R1D1, R1D2, alpha1, alpha2)+Hij_1D(Idx-1, l1-1, l2, R1D1, R1D2, alpha1, alpha2))/(2*p)
+		return PA1D*Hij_1D(Idx, l1-1, l2, R1D1, R1D2, alpha1, alpha2)+((l1-1)*Hij_1D(Idx, l1-2, l2, R1D1, R1D2, alpha1, alpha2)+l2*Hij_1D(Idx, l1-1, l2-1, R1D1, R1D2, alpha1, alpha2)+Hij_1D(Idx-1, l1-1, l2, R1D1, R1D2, alpha1, alpha2))/(2*p)
 	end
 end
 
