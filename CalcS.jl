@@ -38,52 +38,36 @@ function overlap_1D(l1::Int, l2::Int, A::Float64, B::Float64, alpha1::Float64, a
 	return sum_val
 end
 
-"""
-	Sij(basis1::Basis, basis2::Basis)
-
-计算两个收缩高斯基函数 (CGTF) 之间的重叠积分 Sij。
-这两个基函数可以具有任意的角动量。
-"""
 function Sij(basis1::Basis, basis2::Basis)
 	S_total = 0.0
 
 	R1 = basis1.position
 	R2 = basis2.position
-	l1 = basis1.Type # (l_x, l_y, l_z) for basis1
-	l2 = basis2.Type # (l_x, l_y, l_z) for basis2
+	l1 = basis1.Type
+	l2 = basis2.Type
 
-	# 遍历第一个基函数的所有原初高斯函数 (PGTF)
 	for pgtf1 in basis1.GTFs
 		alpha1 = pgtf1.alpha
 		coeff1 = pgtf1.coeff
 		norm1 = pgtf1.norms
 
-		# 遍历第二个基函数的所有原初高斯函数 (PGTF)
 		for pgtf2 in basis2.GTFs
 			alpha2 = pgtf2.alpha
 			coeff2 = pgtf2.coeff
 			norm2 = pgtf2.norms
 
-			# --- 根据高斯乘积定理计算参数 ---
 			p = alpha1 + alpha2
 
-			# 预指数因子
 			R12_sq = sum((R1 .- R2) .^ 2)
 			K_ab = exp(-alpha1 * alpha2 / p * R12_sq)
 
-			# --- 计算三个一维方向上的重叠积分 (使用修正后的函数) ---
-			# X方向
+
 			Sx = overlap_1D(l1[1], l2[1], R1[1], R2[1], alpha1, alpha2, p)
-			# Y方向
 			Sy = overlap_1D(l1[2], l2[2], R1[2], R2[2], alpha1, alpha2, p)
-			# Z方向
 			Sz = overlap_1D(l1[3], l2[3], R1[3], R2[3], alpha1, alpha2, p)
 
-			# --- 计算原初高斯函数对的重叠积分 ---
 			S_primitive = K_ab * sqrt((π/p)^3) * Sx * Sy * Sz
 
-			# --- 累加到总的重叠积分中 ---
-			# 乘以收缩系数和归一化系数
 			S_total += coeff1 * coeff2 * norm1 * norm2 * S_primitive
 		end
 	end
