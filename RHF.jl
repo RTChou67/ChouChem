@@ -21,6 +21,8 @@ MolInAng = [
 	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.0)),
 	Atom("F", 9, "STO-3G", (0.0, 0.0, -1.0)),
 ]
+Charge=0
+
 
 Bohr2Ang=0.52917721092
 MolInBohr = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
@@ -31,7 +33,7 @@ BasisSet = generate_basis_list(Molecule)
 
 
 Num=length(BasisSet)
-ENum=sum(atom.Z for atom in Molecule)
+ENum=sum(atom.Z for atom in Molecule)-Charge
 NNum=length(Molecule)
 
 S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:Num, j in 1:Num]
