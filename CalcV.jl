@@ -85,7 +85,6 @@ function VijPrim(pgtf1::PGTF, pgtf2::PGTF, atom::Atom, basis1::Basis, basis2::Ba
 	alpha1 = pgtf1.alpha
 	alpha2 = pgtf2.alpha
 	p = alpha1 + alpha2
-	sum=0.0
 	for t in 0:(XIdx1+XIdx2)
 		for u in 0:(YIdx1+YIdx2)
 			for v in 0:(ZIdx1+ZIdx2)
@@ -93,11 +92,11 @@ function VijPrim(pgtf1::PGTF, pgtf2::PGTF, atom::Atom, basis1::Basis, basis2::Ba
 				Hy=Hij_1D(u, YIdx1, YIdx2, R1[2], R2[2], alpha1, alpha2)
 				Hz=Hij_1D(v, ZIdx1, ZIdx2, R1[3], R2[3], alpha1, alpha2)
 				R=RtuvV(t, u, v, 0, pgtf1, pgtf2, R1, R2, atom)
-				sum+=Hx*Hy*Hz*R
+				Vtot+=Hx*Hy*Hz*R
 			end
 		end
 	end
-	return -sum*atom.Z*(2*pi/p)
+	return -Vtot*atom.Z*(2*pi/p)
 end
 
 

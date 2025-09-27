@@ -63,68 +63,71 @@ function RtuvG(t::Int, u::Int, v::Int, n::Int, pgtf1::PGTF, pgtf2::PGTF, pgtf3::
 	end
 end
 
-
-
-function Gijkl(basis1::Basis, basis2::Basis, basis3::Basis, basis4::Basis)
-	eri=0
-	l1=basis1.Type
-	l2=basis2.Type
-	l3=basis3.Type
-	l4=basis4.Type
+function GijklPrim(ptgf1::PGTF, ptgf2::PGTF, ptgf3::PGTF, ptgf4::PGTF, basis1::Basis, basis2::Basis, basis3::Basis, basis4::Basis)
+	alpha1=ptgf1.alpha
+	alpha2=ptgf2.alpha
+	alpha3=ptgf3.alpha
+	alpha4=ptgf4.alpha
 	R1=basis1.position
 	R2=basis2.position
 	R3=basis3.position
 	R4=basis4.position
+	l1=basis1.Type
+	l2=basis2.Type
+	l3=basis3.Type
+	l4=basis4.Type
+	I1=0.0
+	for t in 0:(l1[1]+l2[1])
+		for u in 0:(l1[2]+l2[2])
+			for v in 0:(l1[3]+l2[3])
+				E1x=Hij_1D(t, l1[1], l2[1], R1[1], R2[1], alpha1, alpha2)
+				E1y=Hij_1D(u, l1[2], l2[2], R1[2], R2[2], alpha1, alpha2)
+				E1z=Hij_1D(v, l1[3], l2[3], R1[3], R2[3], alpha1, alpha2)
+				E1=E1x*E1y*E1z
+				for tau in 0:(l3[1]+l4[1])
+					for niu in 0:(l3[2]+l4[2])
+						for phi in 0:(l3[3]+l4[3])
+							E2x=Hij_1D(tau, l3[1], l4[1], R3[1], R4[1], alpha3, alpha4)
+							E2y=Hij_1D(niu, l3[2], l4[2], R3[2], R4[2], alpha3, alpha4)
+							E2z=Hij_1D(phi, l3[3], l4[3], R3[3], R4[3], alpha3, alpha4)
+							E2=E2x*E2y*E2z
+							I1+=(-1)^(tau+niu+phi)*E1*E2*RtuvG(t+tau, u+niu, v+phi, 0, ptgf1, ptgf2, ptgf3, ptgf4, R1, R2, R3, R4)
+						end
+					end
+				end
+			end
+		end
+	end
+	p1=alpha1 + alpha2
+	p2=alpha3 + alpha4
+	prefactor=(2*π^2.5)/(p1*p2*sqrt(p1+p2))
+	I1*=prefactor
+	return I1
+end
+
+
+
+function Gijkl(basis1::Basis, basis2::Basis, basis3::Basis, basis4::Basis)
+	eri=0.0
 	for pgtf1 in basis1.GTFs
-		alpha1 = pgtf1.alpha
 		coeff1 = pgtf1.coeff
 		norm1 = pgtf1.norms
 
 		for pgtf2 in basis2.GTFs
-			alpha2 = pgtf2.alpha
 			coeff2 = pgtf2.coeff
 			norm2 = pgtf2.norms
 
 			for pgtf3 in basis3.GTFs
-				alpha3 = pgtf3.alpha
 				coeff3 = pgtf3.coeff
 				norm3 = pgtf3.norms
 
 				for pgtf4 in basis4.GTFs
-					alpha4 = pgtf4.alpha
 					coeff4 = pgtf4.coeff
 					norm4 = pgtf4.norms
 
-					p1=alpha1 + alpha2
-					q2=alpha3 + alpha4
 					I1=0.0
-					for t in 0:(l1[1]+l2[1])
-						for u in 0:(l1[2]+l2[2])
-							for v in 0:(l1[3]+l2[3])
-								E1x=Hij_1D(t, l1[1], l2[1], R1[1], R2[1], alpha1, alpha2)
-								E1y=Hij_1D(u, l1[2], l2[2], R1[2], R2[2], alpha1, alpha2)
-								E1z=Hij_1D(v, l1[3], l2[3], R1[3], R2[3], alpha1, alpha2)
-								E1=E1x*E1y*E1z
-								for tau in 0:(l3[1]+l4[1])
-									for niu in 0:(l3[2]+l4[2])
-										for phi in 0:(l3[3]+l4[3])
-											E2x=Hij_1D(tau, l3[1], l4[1], R3[1], R4[1], alpha3, alpha4)
-											E2y=Hij_1D(niu, l3[2], l4[2], R3[2], R4[2], alpha3, alpha4)
-											E2z=Hij_1D(phi, l3[3], l4[3], R3[3], R4[3], alpha3, alpha4)
-											E2=E2x*E2y*E2z
-											if (tau+niu+phi) % 2 == 0
-												I1+=E1*E2*RtuvG(t+tau, u+niu, v+phi, 0, pgtf1, pgtf2, pgtf3, pgtf4, R1, R2, R3, R4)
-											else
-												I1-=E1*E2*RtuvG(t+tau, u+niu, v+phi, 0, pgtf1, pgtf2, pgtf3, pgtf4, R1, R2, R3, R4)
-											end
-										end
-									end
-								end
-							end
-						end
-					end
-					prefactor=(2*π^2.5)/(p1*q2*sqrt(p1+q2))
-					eri+=norm1*norm2*norm3*norm4*coeff1*coeff2*coeff3*coeff4*prefactor*(I1)
+					I1=GijklPrim(pgtf1, pgtf2, pgtf3, pgtf4, basis1, basis2, basis3, basis4)
+					eri+=norm1*norm2*norm3*norm4*coeff1*coeff2*coeff3*coeff4*(I1)
 				end
 			end
 		end
