@@ -2,6 +2,7 @@
 # 它包含了基组名称到其源文件名的映射。
 
 BasisList = Dict(
+    "6-31G" => "6-31G.jl",
     "STO-2G" => "STO-2G.jl",
     "STO-3G" => "STO-3G.jl",
     "STO-3G*" => "STO-3G*.jl",
