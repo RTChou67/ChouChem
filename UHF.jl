@@ -146,8 +146,9 @@ for i in 1:MaxIter
 	delta_PAlpha = sqrt(sum((PnewAlpha - PAlpha) .^ 2))
 	delta_PBeta = sqrt(sum((PnewBeta - PBeta) .^ 2))
 	delta_P = max(delta_PAlpha, delta_PBeta)
+	println("Iteration $i: ΔP = $delta_P")
 	if delta_P < Threshold
-		println("SCF")
+		println("SCF converged in $i iterations.")
 		PAlpha=PnewAlpha
 		PBeta=PnewBeta
 		break
