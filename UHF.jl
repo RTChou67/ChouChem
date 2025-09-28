@@ -1,6 +1,7 @@
+
+
 using LinearAlgebra
 using Printf
-using SpecialFunctions
 
 include("Definitions.jl")
 include("GetBasisList.jl")
@@ -9,179 +10,184 @@ include("CalcT.jl")
 include("CalcV.jl")
 include("CalcG.jl")
 using .Definitions: PGTF, CGTF, Basis, Atom
-using .GetBasisList: generate_basis_list, get_basis_set
+using .GetBasisList: generate_basis_list
 using .CalcS: Sij
 using .CalcT: Tij
 using .CalcV: Vij
 using .CalcG: Gijkl
 
+module DIIS
+using LinearAlgebra
+export DiisController, insert!, extrapolate
 
+mutable struct DiisController
+	DIISMax::Int
+	FockListAlpha::Vector{Matrix{Float64}}
+	FockListBeta::Vector{Matrix{Float64}}
+	ErrList::Vector{Matrix{Float64}}
 
-MolInAng = [
-	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.0)),
-	Atom("F", 9, "STO-3G", (0.0, 0.0, -1.0)),
-]
-Charge=1
-Multiplicity=2
-
-Bohr2Ang=0.52917721092
-MolInBohr = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
-Molecule = MolInBohr
-
-BasisSet = generate_basis_list(Molecule)
-
-
-
-Num=length(BasisSet)
-ENum=sum(atom.Z for atom in Molecule)-Charge
-NNum=length(Molecule)
-
-ENumAlpha=(ENum+Multiplicity-1)÷2
-ENumBeta=(ENum-Multiplicity+1)÷2
-
-
-
-
-
-S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:Num, j in 1:Num]
-T=[Tij(BasisSet[i], BasisSet[j]) for i in 1:Num, j in 1:Num]
-V=[Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:Num, j in 1:Num]
-ERI=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:Num, j in 1:Num, k in 1:Num, l in 1:Num]
-
-
-
-
-function format_to_custom_eng(x::Float64)
-	if x == 0.0
-		return "0.000000E+00"
+	function DiisController(max_size::Int = 8)
+		new(max_size, [], [], [])
 	end
-	std_eng_str = @sprintf("%1.6e", x)
-	parts = split(std_eng_str, 'e')
-	mantissa_std = parse(Float64, parts[1])
-	exponent_std = parse(Int, parts[2])
-	mantissa_custom = mantissa_std / 10.0
-	exponent_custom = exponent_std + 1
-	sign_char = mantissa_std < 0 ? "-" : ""
-	mantissa_str = @sprintf("%.6f", abs(mantissa_custom))
-	exponent_str = @sprintf("%+03d", exponent_custom)
-	return string(sign_char, mantissa_str, "E", exponent_str)
 end
 
-function print_formatted_matrix(matrix::Matrix{Float64})
-	n = size(matrix, 1)
-	labels = [string(i) for i in 1:n]
-	@printf("%-5s", "")
-	for j in 1:n
-		@printf("%15s", labels[j])
+function insert!(DC::DiisController, FockAlpha::Matrix{Float64}, FockBeta::Matrix{Float64}, ErrMat::Matrix{Float64})
+	push!(DC.FockListAlpha, FockAlpha)
+	push!(DC.FockListBeta, FockBeta)
+	push!(DC.ErrList, ErrMat)
+	if length(DC.ErrList) > DC.DIISMax
+		popfirst!(DC.FockListAlpha)
+		popfirst!(DC.FockListBeta)
+		popfirst!(DC.ErrList)
 	end
-	println()
-	println(repeat("-", 5 + 15*n))
-	for i in 1:n
-		@printf("%-5s", labels[i] * "|")
-		for j in 1:n
-			formatted_num = format_to_custom_eng(matrix[i, j])
-			@printf("%15s", formatted_num)
+end
+
+function extrapolate(DC::DiisController)
+	n = length(DC.ErrList)
+	if n < 2
+		return DC.FockListAlpha[end], DC.FockListBeta[end]
+	end
+
+	B = [dot(DC.ErrList[i], DC.ErrList[j]) for i in 1:n, j in 1:n]
+
+	A = ones(Float64, n + 1, n + 1) * -1.0
+	A[1:n, 1:n] = B
+	A[n+1, n+1] = 0.0
+
+	b = zeros(Float64, n + 1)
+	b[n+1] = -1.0
+
+	coeffs = pinv(A) * b
+	c = coeffs[1:n]
+
+	FockAlphaNext = sum(c[i] * DC.FockListAlpha[i] for i in 1:n)
+	FockBetaNext = sum(c[i] * DC.FockListBeta[i] for i in 1:n)
+
+	return FockAlphaNext, FockBetaNext
+end
+
+end
+
+
+module UHFSCF
+using LinearAlgebra
+using Printf
+using ..Definitions: Atom
+using ..DIIS
+using ..GetBasisList: generate_basis_list
+using ..CalcS: Sij
+using ..CalcT: Tij
+using ..CalcV: Vij
+using ..CalcG: Gijkl
+
+export run_scf
+
+function CalcSTVG(BasisSet, Molecule)
+	BNum = length(BasisSet)
+	S = [Sij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
+	T = [Tij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
+	V = [Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:BNum, j in 1:BNum]
+	ERI = [Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:BNum, j in 1:BNum, k in 1:BNum, l in 1:BNum]
+	return S, T, V, ERI
+end
+
+function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 100, Threshold = 1e-10)
+	BasisSet = generate_basis_list(Molecule)
+	BNum = length(BasisSet)
+	ENum = sum(atom.Z for atom in Molecule) - charge
+	ENumAlpha = (ENum + multiplicity - 1) ÷ 2
+	ENumBeta = (ENum - multiplicity + 1) ÷ 2
+
+	println("--- System Information ---")
+	@printf("Basis functions: %d\n", BNum)
+	@printf("Alpha electrons: %d\n", ENumAlpha)
+	@printf("Beta electrons:  %d\n", ENumBeta)
+	println("------------------------\n")
+
+	S, T, V, ERI = calculate_matrices(BasisSet, Molecule)
+	Hcore = T + V
+	X = S^(-0.5)
+
+	EGuess, CGuess = eigen(X' * Hcore * X)
+	C = X * CGuess[:, sortperm(EGuess)]
+	PAlpha = C[:, 1:ENumAlpha] * C[:, 1:ENumAlpha]'
+	PBeta = C[:, 1:ENumBeta] * C[:, 1:ENumBeta]'
+
+	DIIS = DIIS.DiisController()
+
+	println("--- Starting SCF Iterations ---")
+	Etot_old = 0.0
+
+	for i in 1:MaxIter
+		Ptotal = PAlpha + PBeta
+		GAlpha = [sum(Ptotal[k, l]*ERI[i, j, k, l] - PAlpha[k, l]*ERI[i, l, k, j] for k in 1:BNum, l in 1:BNum) for i in 1:BNum, j in 1:BNum]
+		GBeta = [sum(Ptotal[k, l]*ERI[i, j, k, l] - PBeta[k, l]*ERI[i, l, k, j] for k in 1:BNum, l in 1:BNum) for i in 1:BNum, j in 1:BNum]
+		FAlpha_current = Hcore + GAlpha
+		FBeta_current = Hcore + GBeta
+
+		ErrMat = X' * (FAlpha_current * PAlpha * S - S * PAlpha * FAlpha_current) * X +
+				 X' * (FBeta_current * PBeta * S - S * PBeta * FBeta_current) * X
+
+		DIIS.insert!(DIIS, FAlpha_current, FBeta_current, ErrMat)
+
+		FAlpha, FBeta = DIIS.extrapolate(DIIS)
+
+		EAlphaVec, CprimeAlpha = eigen(X' * FAlpha * X)
+		EBetaVec, CprimeBeta = eigen(X' * FBeta * X)
+
+		CAlpha = X * CprimeAlpha[:, sortperm(EAlphaVec)]
+		CBeta = X * CprimeBeta[:, sortperm(EBetaVec)]
+
+		PnewAlpha = CAlpha[:, 1:ENumAlpha] * CAlpha[:, 1:ENumAlpha]'
+		PnewBeta = CBeta[:, 1:ENumBeta] * CBeta[:, 1:ENumBeta]'
+
+		VNN = sum(Molecule[i].Z * Molecule[j].Z / norm(Molecule[i].position .- Molecule[j].position) for i in eachindex(Molecule) for j in eachindex(Molecule))
+		Ee = 0.5 * sum(PAlpha .* (Hcore + FAlpha)) + 0.5 * sum(PBeta .* (Hcore + FBeta))
+		Etot = Ee + VNN
+
+		delta_E = abs(Etot - Etot_old)
+		delta_P = max(sqrt(sum((PnewAlpha - PAlpha) .^ 2)), sqrt(sum((PnewBeta - PBeta) .^ 2)))
+		@printf("Iteration %3d: E = %-16.10f  ΔE = %-12.2e  ΔP = %.2e\n", i, Etot, delta_E, delta_P)
+
+		PAlpha = PnewAlpha
+		PBeta = PnewBeta
+		Etot_old = Etot
+
+		if delta_E < 1e-9 && delta_P < Threshold
+			println("\nSCF converged in $i iterations.")
+			@printf("\n--- Final Energy Results ---\n")
+			@printf("Electronic Energy = %.10f Hartree\n", Ee)
+			@printf("Nuclear Repulsion = %.10f Hartree\n", VNN)
+			@printf("Total Energy      = %.10f Hartree\n", Etot)
+			return Etot
 		end
-		println()
 	end
+	println("\nSCF failed to converge after $max_iter iterations.")
+	return nothing
 end
 
+end 
 
-println("\nOverlap Matrix S:")
-print_formatted_matrix(S)
-println("\nKinetic Energy Matrix T:")
-print_formatted_matrix(T)
-println("\nNuclear Attraction Matrix V:")
-print_formatted_matrix(V)
+function main()
 
+	MolInAng = [
+		Atom("H", 1, "6-31G", (0.0, 0.0, 0.0)),
+		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)), # Set bond length to 1.0 Å
+	]
+	println(typeof(MolInAng))
+	Charge = 0
+	Multiplicity = 1
 
+	Bohr2Ang = 0.52917721092
+	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
 
-
-Hcore=T+V
-
-println("\nCore Hamiltonian Hcore:")
-print_formatted_matrix(Hcore)
-
-
-F=Hcore
-
-MaxIter=100
-Threshold=1e-10
-
-
-X=S^(-0.5)
-Fprime=X'*F*X
-E, Cprime=eigen(Fprime)
-C=X*Cprime
-p = sortperm(E)
-E=E[p]
-Cprime=Cprime[:, p]
-PAlpha=[sum(C[i, m]*C[j, m] for m in 1:ENumAlpha) for i in 1:Num, j in 1:Num]
-PBeta=[sum(C[i, m]*C[j, m] for m in 1:ENumBeta) for i in 1:Num, j in 1:Num]
-
-
-
-for i in 1:MaxIter
-	global PAlpha, PBeta, FAlpha, FBeta, FprimeAlpha, FprimeBeta, EAlpha, EBeta, CprimeAlpha, CprimeBeta, CAlpha, CBeta, GAlpha, GBeta, PnewAlpha, PnewBeta
-	Ptotal=PAlpha+PBeta
-	#global PAlpha, PBeta, FAlpha, FBeta, Fprime, E, Cprime, C, G, Pnew, p
-	GAlpha = [sum(Ptotal[k, l]*ERI[i, j, k, l] - PAlpha[k, l]*ERI[i, l, k, j] for k in 1:Num, l in 1:Num) for i in 1:Num, j in 1:Num]
-	GBeta = [sum(Ptotal[k, l]*ERI[i, j, k, l] - PBeta[k, l]*ERI[i, l, k, j] for k in 1:Num, l in 1:Num) for i in 1:Num, j in 1:Num]
-	FAlpha=Hcore+GAlpha
-	FBeta=Hcore+GBeta
-	FprimeAlpha=X'*FAlpha*X
-	FprimeBeta=X'*FBeta*X
-	EAlpha, CprimeAlpha=eigen(FprimeAlpha)
-	EBeta, CprimeBeta=eigen(FprimeBeta)
-	pAlpha=sortperm(EAlpha)
-	pBeta=sortperm(EBeta)
-	EAlpha=EAlpha[pAlpha]
-	EBeta=EBeta[pBeta]
-	CprimeAlpha=CprimeAlpha[:, pAlpha]
-	CprimeBeta=CprimeBeta[:, pBeta]
-	CAlpha=X*CprimeAlpha
-	CBeta=X*CprimeBeta
-	PnewAlpha=[sum(CAlpha[i, m]*CAlpha[j, m] for m in 1:ENumAlpha) for i in 1:Num, j in 1:Num]
-	PnewBeta=[sum(CBeta[i, m]*CBeta[j, m] for m in 1:ENumBeta) for i in 1:Num, j in 1:Num]
-	delta_PAlpha = sqrt(sum((PnewAlpha - PAlpha) .^ 2))
-	delta_PBeta = sqrt(sum((PnewBeta - PBeta) .^ 2))
-	delta_P = max(delta_PAlpha, delta_PBeta)
-	println("Iteration $i: ΔP = $delta_P")
-	if delta_P < Threshold
-		println("SCF converged in $i iterations.")
-		PAlpha=PnewAlpha
-		PBeta=PnewBeta
-		break
+	@printf("\n--- Molecular Structure ---\n")
+	for atom in MolInAng
+		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
 	end
-	PAlpha=PnewAlpha
-	PBeta=PnewBeta
+	println("---------------------------\n")
+
+	UHFSCF.run_scf(Molecule, Charge, Multiplicity)
 end
 
-Ptotal=PAlpha+PBeta
-
-VNN = sum(Molecule[i].Z * Molecule[j].Z / sqrt(sum((Molecule[i].position .- Molecule[j].position) .^ 2)) for i in 1:NNum for j in (i+1):NNum)
-print_formatted_matrix(Ptotal)
-
-Ee = 0.5 * sum(PAlpha .* (Hcore + FAlpha)) + 0.5 * sum(PBeta .* (Hcore + FBeta))
-Etot = Ee + VNN
-
-
-Te = sum(Ptotal .* T)
-VNe = sum(Ptotal .* V)
-Vee = 0.5 * (sum(PAlpha .* GAlpha) + sum(PBeta .* GBeta))
-Etot_components = Te + VNe + Vee + VNN
-
-
-@printf("\n--- Molecular Structure ---\n")
-for i in 1:NNum
-	atom = Molecule[i]
-	@printf("Atom %d: %s (Z=%d) at (%+.6f, %+.6f, %+.6f) Å\n", i, atom.symbol, atom.Z, atom.position[1]*0.52918, atom.position[2]*0.52918, atom.position[3]*0.52918)
-end
-
-
-
-@printf("\n--- Final Energy Results ---\n")
-@printf("Total Energy      = %.10f Hartree\n", Etot)
-@printf("Electronic Energy = %.10f Hartree\n", Ee)
-@printf("Nuclear Repulsion =  %.10f Hartree\n", VNN)
-#
+main()
