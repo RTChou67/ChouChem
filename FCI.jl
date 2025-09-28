@@ -4,7 +4,6 @@ using SpecialFunctions
 using Combinatorics
 
 
-T0=time_ns()
 
 include("Definitions.jl")
 include("GetBasisList.jl")
@@ -23,7 +22,7 @@ using .CalcG: Gijkl
 
 MolInAng = [
 	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.0)),
-	Atom("B", 5, "STO-3G", (0.0, 0.0, -1.0)),
+	Atom("F", 9, "STO-3G", (0.0, 0.0, -1.0)),
 ]
 Charge=0
 Multiplicity=1
@@ -48,13 +47,13 @@ ENumBeta=(ENum-Multiplicity+1)÷2
 
 
 S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
-T1=time_ns()
+
 T=[Tij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
-T2=time_ns()
+
 V=[Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:ONum, j in 1:ONum]
-T3=time_ns()
+
 ERI_AO=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum]
-T4=time_ns()
+
 
 
 function format_to_custom_eng(x::Float64)
@@ -115,6 +114,7 @@ MaxIter=100
 Threshold=1e-10
 
 
+
 X=S^(-0.5)
 Fprime=X'*F*X
 E, Cprime=eigen(Fprime)
@@ -151,6 +151,7 @@ for i in 1:MaxIter
 	delta_PAlpha = sqrt(sum((PnewAlpha - PAlpha) .^ 2))
 	delta_PBeta = sqrt(sum((PnewBeta - PBeta) .^ 2))
 	delta_P = max(delta_PAlpha, delta_PBeta)
+	println("Iteration $i: ΔP = $delta_P")
 	if delta_P < Threshold
 		println("UHF converged in $i iterations with ΔP = $delta_P")
 		PAlpha=PnewAlpha
@@ -180,7 +181,7 @@ end
 @printf("Electronic Energy = %.10f Hartree\n", Ee_UHF)
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_UHF)
 
-T5=time_ns()
+
 
 SONum=2*ONum
 
@@ -198,7 +199,7 @@ ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta)
 ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta)
 ERI_abab=TransERI(ERI_AO, CAlpha, CBeta, CAlpha, CBeta)
 println("ERI transformation complete.")
-T6=time_ns()
+
 function GetERI(p::Int, r::Int, q::Int, s::Int, ONum::Int, aaaa, bbbb, aabb)
 	IsPA = p <= ONum
 	IsRA = r <= ONum
@@ -242,19 +243,19 @@ function GetPhase(p::Int, q::Int, CommonOrb::Vector{Int})
 end
 
 function GetPhase(S1::Vector{Int}, p::Int, q::Int, r::Int, s::Int)
-    PositionP = findfirst(==(p), S1)
-    PositionQ = findfirst(==(q), S1)
+	PositionP = findfirst(==(p), S1)
+	PositionQ = findfirst(==(q), S1)
 
-    PhaseAnnihilate = (-1)^(PositionP - 1 + PositionQ - 2)
+	PhaseAnnihilate = (-1)^(PositionP - 1 + PositionQ - 2)
 
-    S2 = sort(vcat(collect(setdiff(S1, [p, q])), [r, s]))
+	S2 = sort(vcat(collect(setdiff(S1, [p, q])), [r, s]))
 
-    PositionR = findfirst(==(r), S2)
-    PositionS = findfirst(==(s), S2)
+	PositionR = findfirst(==(r), S2)
+	PositionS = findfirst(==(s), S2)
 
-    PhaseCreate = (-1)^(PositionR - 1 + PositionS - 2)
+	PhaseCreate = (-1)^(PositionR - 1 + PositionS - 2)
 
-    return PhaseAnnihilate * PhaseCreate
+	return PhaseAnnihilate * PhaseCreate
 end
 
 
@@ -292,7 +293,7 @@ end
 
 
 CI=[CalcCI(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
-T7=time_ns()
+
 
 E_CI, C_CI=eigen(CI)
 
@@ -304,14 +305,5 @@ Etot_FCI = Ee_FCI + VNN_FCI
 @printf("Total Energy      = %.10f Hartree\n", Etot_FCI)
 @printf("Electronic Energy = %.10f Hartree\n", Ee_FCI)
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_FCI)
-T8=time_ns()
-println("\n--- Timing Information (in seconds) ---")
-@printf("Total Time: %.6f s\n", (T8 - T0) / 1e9)
-@printf("S Matrix Calculation Time: %.6f s\n", (T1 - T0) / 1e9)
-@printf("T Matrix Calculation Time: %.6f s\n", (T2 - T1) / 1e9)
-@printf("V Matrix Calculation Time: %.6f s\n", (T3 - T2) / 1e9)
-@printf("G Matrix Calculation Time: %.6f s\n", (T4 - T3) / 1e9)
-@printf("Hartree Fock SCF Calculation Time: %.6f s\n", (T5 - T4) / 1e9)
-@printf("ERI transformation Calculation Time: %.6f s\n", (T6 - T5) / 1e9)
-@printf("CI Diagonalization Calculation Time: %.6f s\n", (T7 - T6) / 1e9)
-@printf("Energy Calculation Time: %.6f s\n", (T8 - T7) / 1e9)
+
+
