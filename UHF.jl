@@ -16,22 +16,22 @@ using .CalcT: Tij
 using .CalcV: Vij
 using .CalcG: Gijkl
 
-module DIIS
+module UHF_DIIS
 using LinearAlgebra
-export DiisController, insert!, extrapolate
+export DIISController, insert!, extrapolate
 
-mutable struct DiisController
+struct DIISController
 	DIISMax::Int
 	FockListAlpha::Vector{Matrix{Float64}}
 	FockListBeta::Vector{Matrix{Float64}}
 	ErrList::Vector{Matrix{Float64}}
 
-	function DiisController(max_size::Int = 8)
-		new(max_size, [], [], [])
+	function DIISController(MaxSize::Int = 8)
+		new(MaxSize, [], [], [])
 	end
 end
 
-function insert!(DC::DiisController, FockAlpha::Matrix{Float64}, FockBeta::Matrix{Float64}, ErrMat::Matrix{Float64})
+function insert!(DC::DIISController, FockAlpha::Matrix{Float64}, FockBeta::Matrix{Float64}, ErrMat::Matrix{Float64})
 	push!(DC.FockListAlpha, FockAlpha)
 	push!(DC.FockListBeta, FockBeta)
 	push!(DC.ErrList, ErrMat)
@@ -42,7 +42,7 @@ function insert!(DC::DiisController, FockAlpha::Matrix{Float64}, FockBeta::Matri
 	end
 end
 
-function extrapolate(DC::DiisController)
+function extrapolate(DC::DIISController)
 	n = length(DC.ErrList)
 	if n < 2
 		return DC.FockListAlpha[end], DC.FockListBeta[end]
@@ -69,18 +69,18 @@ end
 end
 
 
-module UHFSCF
+module UHF
 using LinearAlgebra
 using Printf
 using ..Definitions: Atom
-using ..DIIS
+using ..UHF_DIIS
 using ..GetBasisList: generate_basis_list
 using ..CalcS: Sij
 using ..CalcT: Tij
 using ..CalcV: Vij
 using ..CalcG: Gijkl
 
-export run_scf
+export SCF
 
 function CalcSTVG(BasisSet, Molecule)
 	BNum = length(BasisSet)
@@ -104,7 +104,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 	@printf("Beta electrons:  %d\n", ENumBeta)
 	println("------------------------\n")
 
-	S, T, V, ERI = calculate_matrices(BasisSet, Molecule)
+	@time S, T, V, ERI = CalcSTVG(BasisSet, Molecule)
 	Hcore = T + V
 	X = S^(-0.5)
 
@@ -113,7 +113,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 	PAlpha = C[:, 1:ENumAlpha] * C[:, 1:ENumAlpha]'
 	PBeta = C[:, 1:ENumBeta] * C[:, 1:ENumBeta]'
 
-	DIIS = DIIS.DiisController()
+	DIIS = UHF_DIIS.DIISController()
 
 	println("--- Starting SCF Iterations ---")
 	Etot_old = 0.0
@@ -128,9 +128,9 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 		ErrMat = X' * (FAlpha_current * PAlpha * S - S * PAlpha * FAlpha_current) * X +
 				 X' * (FBeta_current * PBeta * S - S * PBeta * FBeta_current) * X
 
-		DIIS.insert!(DIIS, FAlpha_current, FBeta_current, ErrMat)
+		UHF_DIIS.insert!(DIIS, FAlpha_current, FBeta_current, ErrMat)
 
-		FAlpha, FBeta = DIIS.extrapolate(DIIS)
+		FAlpha, FBeta = UHF_DIIS.extrapolate(DIIS)
 
 		EAlphaVec, CprimeAlpha = eigen(X' * FAlpha * X)
 		EBetaVec, CprimeBeta = eigen(X' * FBeta * X)
@@ -141,7 +141,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 		PnewAlpha = CAlpha[:, 1:ENumAlpha] * CAlpha[:, 1:ENumAlpha]'
 		PnewBeta = CBeta[:, 1:ENumBeta] * CBeta[:, 1:ENumBeta]'
 
-		VNN = sum(Molecule[i].Z * Molecule[j].Z / norm(Molecule[i].position .- Molecule[j].position) for i in eachindex(Molecule) for j in eachindex(Molecule))
+		VNN = sum(Molecule[i].Z * Molecule[j].Z / norm(Molecule[i].position .- Molecule[j].position) for i in 1:length(Molecule) for j in (i+1):length(Molecule))
 		Ee = 0.5 * sum(PAlpha .* (Hcore + FAlpha)) + 0.5 * sum(PBeta .* (Hcore + FBeta))
 		Etot = Ee + VNN
 
@@ -153,7 +153,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 		PBeta = PnewBeta
 		Etot_old = Etot
 
-		if delta_E < 1e-9 && delta_P < Threshold
+		if delta_E < Threshold && delta_P < Threshold
 			println("\nSCF converged in $i iterations.")
 			@printf("\n--- Final Energy Results ---\n")
 			@printf("Electronic Energy = %.10f Hartree\n", Ee)
@@ -162,11 +162,11 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 			return Etot
 		end
 	end
-	println("\nSCF failed to converge after $max_iter iterations.")
+	println("\nSCF failed to converge after $MaxIter iterations.")
 	return nothing
 end
 
-end 
+end
 
 function main()
 
@@ -174,7 +174,6 @@ function main()
 		Atom("H", 1, "6-31G", (0.0, 0.0, 0.0)),
 		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)), # Set bond length to 1.0 Å
 	]
-	println(typeof(MolInAng))
 	Charge = 0
 	Multiplicity = 1
 
@@ -187,7 +186,7 @@ function main()
 	end
 	println("---------------------------\n")
 
-	UHFSCF.run_scf(Molecule, Charge, Multiplicity)
+	UHF.SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-8)
 end
 
 main()
