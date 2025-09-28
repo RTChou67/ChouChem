@@ -3,6 +3,9 @@ using Printf
 using SpecialFunctions
 using Combinatorics
 
+
+T0=time_ns()
+
 include("Definitions.jl")
 include("GetBasisList.jl")
 include("CalcS.jl")
@@ -45,11 +48,13 @@ ENumBeta=(ENum-Multiplicity+1)÷2
 
 
 S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
+T1=time_ns()
 T=[Tij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
+T2=time_ns()
 V=[Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:ONum, j in 1:ONum]
+T3=time_ns()
 ERI_AO=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum]
-
-
+T4=time_ns()
 
 
 function format_to_custom_eng(x::Float64)
@@ -175,6 +180,7 @@ end
 @printf("Electronic Energy = %.10f Hartree\n", Ee_UHF)
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_UHF)
 
+T5=time_ns()
 
 SONum=2*ONum
 
@@ -192,7 +198,7 @@ ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta)
 ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta)
 ERI_abab=TransERI(ERI_AO, CAlpha, CBeta, CAlpha, CBeta)
 println("ERI transformation complete.")
-
+T6=time_ns()
 function GetERI(p::Int, r::Int, q::Int, s::Int, ONum::Int, aaaa, bbbb, aabb)
 	IsPA = p <= ONum
 	IsRA = r <= ONum
@@ -286,6 +292,7 @@ end
 
 
 CI=[CalcCI(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
+T7=time_ns()
 
 E_CI, C_CI=eigen(CI)
 
@@ -297,3 +304,14 @@ Etot_FCI = Ee_FCI + VNN_FCI
 @printf("Total Energy      = %.10f Hartree\n", Etot_FCI)
 @printf("Electronic Energy = %.10f Hartree\n", Ee_FCI)
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_FCI)
+T8=time_ns()
+println("\n--- Timing Information (in seconds) ---")
+@printf("Total Time: %.6f s\n", (T8 - T0) / 1e9)
+@printf("S Matrix Calculation Time: %.6f s\n", (T1 - T0) / 1e9)
+@printf("T Matrix Calculation Time: %.6f s\n", (T2 - T1) / 1e9)
+@printf("V Matrix Calculation Time: %.6f s\n", (T3 - T2) / 1e9)
+@printf("G Matrix Calculation Time: %.6f s\n", (T4 - T3) / 1e9)
+@printf("Hartree Fock SCF Calculation Time: %.6f s\n", (T5 - T4) / 1e9)
+@printf("ERI transformation Calculation Time: %.6f s\n", (T6 - T5) / 1e9)
+@printf("CI Diagonalization Calculation Time: %.6f s\n", (T7 - T6) / 1e9)
+@printf("Energy Calculation Time: %.6f s\n", (T8 - T7) / 1e9)
