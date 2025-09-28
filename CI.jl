@@ -21,11 +21,13 @@ using .CalcG: Gijkl
 
 
 MolInAng = [
-	Atom("H", 1, "STO-3G", (0.0, 0.0, +1.0)),
-	Atom("F", 9, "STO-3G", (0.0, 0.0, -1.0)),
+	Atom("H", 1, "6-31G", (0.0, 0.0, +1.0)),
+	Atom("F", 9, "6-31G", (0.0, 0.0, -1.0)),
 ]
 Charge=0
 Multiplicity=1
+MaxExcitation=-1
+
 
 Bohr2Ang=0.52917721092
 MolInBohr = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
@@ -57,37 +59,23 @@ ERI_AO=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:ONu
 
 
 function format_to_custom_eng(x::Float64)
-	if x == 0.0
-		return "0.000000E+00"
-	end
-	std_eng_str = @sprintf("%1.6e", x)
-	parts = split(std_eng_str, 'e')
-	mantissa_std = parse(Float64, parts[1])
-	exponent_std = parse(Int, parts[2])
-	mantissa_custom = mantissa_std / 10.0
-	exponent_custom = exponent_std + 1
-	sign_char = mantissa_std < 0 ? "-" : ""
-	mantissa_str = @sprintf("%.6f", abs(mantissa_custom))
-	exponent_str = @sprintf("%+03d", exponent_custom)
-	return string(sign_char, mantissa_str, "E", exponent_str)
+	iszero(x) && return "0.000000E+00"
+	exponent = floor(Int, log10(abs(x))) + 1
+	mantissa = x / 10.0^exponent
+	return @sprintf("%1.6fE%+03d", mantissa, exponent)
 end
+
 
 function print_formatted_matrix(matrix::Matrix{Float64})
 	n = size(matrix, 1)
-	labels = [string(i) for i in 1:n]
-	@printf("%-5s", "")
-	for j in 1:n
-		@printf("%15s", labels[j])
-	end
-	println()
-	println(repeat("-", 5 + 15*n))
+	col_width = 15
+	header = "     " * join(lpad.(1:n, col_width))
+	println(header)
+	println(repeat("-", 5 + col_width * n))
 	for i in 1:n
-		@printf("%-5s", labels[i] * "|")
-		for j in 1:n
-			formatted_num = format_to_custom_eng(matrix[i, j])
-			@printf("%15s", formatted_num)
-		end
-		println()
+		print(rpad("$i|", 5))
+		row_str = join(lpad.(format_to_custom_eng.(matrix[i, :]), col_width))
+		println(row_str)
 	end
 end
 
@@ -234,8 +222,53 @@ end
 
 
 
+function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int)
+	OccOrbs=RefDet
+	VirOrbs=collect(setdiff(Set(collect(OrbRange)), Set(OccOrbs)))
 
-Determinants=collect(combinations(1:SONum, ENum))
+	println("\n--- Excitation Analysis ---")
+	DetAllLvl=Set([RefDet])
+	@printf("Number of 0-fold excitations: %d\n", 1)
+	for Lvl in 1:MaxExcit
+		if Lvl>length(OccOrbs) || Lvl>length(VirOrbs)
+			break
+		end
+		DetThisLvl=[]
+
+		OccComb=combinations(OccOrbs, Lvl)
+		VirComb=combinations(VirOrbs, Lvl)
+		for Occ in OccComb
+			BaseDetSet=setdiff(Set(OccOrbs), Set(Occ))
+			for Vir in VirComb
+				NewDetSet=union(BaseDetSet, Set(Vir))
+				push!(DetThisLvl, sort(collect(NewDetSet)))
+			end
+		end
+		UniqueDetListThisLvl=unique(DetThisLvl)
+		CountThisLvl=length(UniqueDetListThisLvl)
+
+		@printf("Number of %-2d-fold excitations: %d\n", Lvl, CountThisLvl)
+		union!(DetAllLvl, UniqueDetListThisLvl)
+	end
+	println("--------------------------------------------\n")
+	return unique(DetAllLvl)
+end
+
+
+OccAlpha=1:ENumAlpha
+OccBeta=(ONum+1):(ONum+ENumBeta)
+RefDeterminants=sort(vcat(collect(OccAlpha), collect(OccBeta)))
+
+if MaxExcitation==-1
+	NVir=SONum-ENum
+	FCILvl=min(ENum, NVir)
+	@printf("\nMaxExcit = -1 detected. Setting excitation level to %d for Full CI.\n", FCILvl)
+	global MaxExcitation=FCILvl
+end
+
+@printf("Generating CI space for excitation level <= %d...\n", MaxExcitation)
+Determinants=GenCISpace(RefDeterminants, 1:SONum, MaxExcitation)
+@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
 
 function GetPhase(p::Int, q::Int, CommonOrb::Vector{Int})
 	NInterOrbs = count(i -> (p < i < q) || (q < i < p), CommonOrb)
