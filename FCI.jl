@@ -3,7 +3,7 @@ using Printf
 using SpecialFunctions
 using Combinatorics
 
-
+Time1=time_ns()
 
 include("Definitions.jl")
 include("GetBasisList.jl")
@@ -307,3 +307,5 @@ Etot_FCI = Ee_FCI + VNN_FCI
 @printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_FCI)
 
 
+Time2=time_ns()
+println("\nTotal Time: %.2f seconds\n", (Time2-Time1)/1e9)
