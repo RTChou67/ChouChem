@@ -44,7 +44,7 @@ function extrapolate(DC::DIISController)
 
 	B = [dot(DC.ErrList[i], DC.ErrList[j]) for i in 1:n, j in 1:n]
 
-	A = ones(Float64, n + 1, n + 1) * -1.0
+	A = -ones(Float64, n + 1, n + 1)
 	A[1:n, 1:n] = B
 	A[n+1, n+1] = 0.0
 
@@ -141,7 +141,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 
 	DIIS = UHF_DIIS.DIISController()
 
-	println("--- Starting SCF Iterations ---")
+	println("\n--- Starting SCF Iterations ---")
 	Etot_old = 0.0
 
 	for i in 1:MaxIter
