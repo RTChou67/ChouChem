@@ -15,14 +15,14 @@ function get_basis_set(name::String)
 		return LoadedBasisSets[name]
 	end
 	if !haskey(BasisNameToFile, name)
-		error("在 BasisList.jl 中未找到基组名 '$name' 的路径。")
+		error("Cannot find basis set '$name' in BasisList.jl.")
 	end
 	filename = BasisNameToFile[name]
 	filepath = joinpath(BASIS_SET_DIR, filename)
 
 
 	if !isfile(filepath)
-		error("基组文件未找到: '$filepath'")
+		error("Cannot find basis set file: '$filepath'")
 	end
 
 
@@ -32,7 +32,7 @@ function get_basis_set(name::String)
 		return basis_data
 	catch e
 
-		error("加载或解析基组文件 '$filepath' 失败: $e")
+		error("Failed to load or parse basis set file '$filepath': $e")
 	end
 end
 
@@ -42,21 +42,21 @@ function generate_basis_list(molecule::Vector{Atom})
 
 	BasisList = Basis[]
 
-	println("--- 开始为分子生成基函数列表 ---")
+	println("--- Start Generating Basis Functions ---")
 
 	for atom in molecule
-		println("处理原子 '$(atom.symbol)'，基组为 '$(atom.basis_set)'...")
+		println("Processing atom '$(atom.symbol)', basis set '$(atom.basis_set)'...")
 
 		basis_set_data = get_basis_set(atom.basis_set)
 		if isnothing(basis_set_data)
 
-			error("无法为原子 $(atom.symbol) 加载基组 $(atom.basis_set)，计算终止。")
+			error("Cannot load basis set '$(atom.basis_set)' for atom '$(atom.symbol)', calculation aborted.")
 		end
 
 
 		if !haskey(basis_set_data, atom.Z)
 
-			error("在基组 '$(atom.basis_set)' 中未找到原子序数为 $(atom.Z) ('$(atom.symbol)') 的数据。计算终止。")
+			error("Cannot find data for atomic number $(atom.Z) ('$(atom.symbol)') in basis set '$(atom.basis_set)', calculation aborted.")
 		end
 
 		element_data = basis_set_data[atom.Z]
@@ -69,10 +69,10 @@ function generate_basis_list(molecule::Vector{Atom})
 			)
 			push!(BasisList, new_basis_function)
 		end
-		println("  -> 为 '$(atom.symbol)' 添加了 $(length(element_data)) 个基函数。")
+		println("  -> Added $(length(element_data)) basis functions for '$(atom.symbol)'.")
 	end
 
-	println("--- 基函数列表生成完毕 ---\n")
+	println("--- Basis function generation complete ---\n")
 	return BasisList
 end
 
