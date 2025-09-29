@@ -2,12 +2,7 @@ using LinearAlgebra
 using Printf
 using Dates
 
-include("Definitions.jl")
-include("GetBasisList.jl")
-include("CalcS.jl")
-include("CalcT.jl")
-include("CalcV.jl")
-include("CalcG.jl")
+
 using .Definitions: PGTF, CGTF, Basis, Atom
 using .GetBasisList: generate_basis_list
 using .CalcS: Sij
@@ -71,7 +66,7 @@ end
 module UHF
 using LinearAlgebra
 using Printf
-using ..Definitions: Atom
+using ..Definitions: Atom, CGTF, Basis
 using ..UHF_DIIS
 using ..GetBasisList: generate_basis_list
 using ..CalcS: Sij
@@ -79,7 +74,28 @@ using ..CalcT: Tij
 using ..CalcV: Vij
 using ..CalcG: Gijkl
 
-export SCF
+export SCF, UHFResults
+
+struct UHFResults
+	Molecule::Vector{Atom}
+	BasisSet::Vector{Basis}
+	ENumAlpha::Int
+	ENumBeta::Int
+	S::Matrix{Float64}
+	Hcore::Matrix{Float64}
+	ERI::Array{Float64, 4}
+	CAlpha::Matrix{Float64}
+	CBeta::Matrix{Float64}
+	EAlpha::Vector{Float64}
+	EBeta::Vector{Float64}
+	Ee::Float64
+	VNN::Float64
+	Etot::Float64
+end
+
+
+
+
 
 function CalcMatrices(BasisSet, Molecule)
 	BNum = length(BasisSet)
@@ -145,6 +161,11 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 		EAlphaVec, CprimeAlpha = eigen(X' * FAlpha * X)
 		EBetaVec, CprimeBeta = eigen(X' * FBeta * X)
 
+		pAlpha = sortperm(EAlphaVec)
+		pBeta = sortperm(EBetaVec)
+		EAlphaVec = EAlphaVec[pAlpha]
+		EBetaVec = EBetaVec[pBeta]
+
 		CAlpha = X * CprimeAlpha[:, sortperm(EAlphaVec)]
 		CBeta = X * CprimeBeta[:, sortperm(EBetaVec)]
 
@@ -170,7 +191,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 			@printf("Nuclear Repulsion = %.10f Hartree\n", VNN)
 			@printf("Total Energy      = %.10f Hartree\n", Etot)
 			println("----------------------------\n")
-			return Etot
+			return UHFResults(Molecule, BasisSet, ENumAlpha, ENumBeta, S, Hcore, ERI, CAlpha, CBeta, EAlphaVec, EBetaVec, Ee, VNN, Etot)
 		end
 	end
 	println("\nSCF failed to converge after $MaxIter iterations.")
@@ -179,35 +200,4 @@ end
 
 end
 
-function main()
-	TStart=time_ns()
-	MolInAng = [
-		Atom("H", 1, "6-31G", (0.0, 0.0, -1.0)),
-		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)),
-	]
-	Charge = 0
-	Multiplicity = 1
 
-	Bohr2Ang = 0.52917721092
-	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
-
-	@printf("\n--- Molecular Structure ---\n")
-	for atom in MolInAng
-		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
-	end
-	println("---------------------------\n")
-
-	UHF.SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
-	TEnd=time_ns()
-	TSeconds = (TEnd - TStart) / 1e9
-	days = floor(Int, TSeconds / 86400)
-	hours = floor(Int, (TSeconds % 86400) / 3600)
-	minutes = floor(Int, (TSeconds % 3600) / 60)
-	seconds = TSeconds % 60
-	DateTime = Dates.format(now(), "e u dd HH:MM:SS yyyy")
-	@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
-	@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
-	println(" Normal termination of Julia HF at $(DateTime).")
-end
-
-main()

@@ -1,192 +1,41 @@
+
+
+module CI
+
 using LinearAlgebra
 using Printf
-using SpecialFunctions
 using Combinatorics
 
-Time1=time_ns()
 
-include("Definitions.jl")
-include("GetBasisList.jl")
-include("CalcS.jl")
-include("CalcT.jl")
-include("CalcV.jl")
-include("CalcG.jl")
-using .Definitions: PGTF, CGTF, Basis, Atom
-using .GetBasisList: generate_basis_list, get_basis_set
-using .CalcS: Sij
-using .CalcT: Tij
-using .CalcV: Vij
-using .CalcG: Gijkl
+using ..UHF: UHFResults
+using ..Definitions: Atom
 
 
+export RunCI, CIResults
 
-MolInAng = [
-	Atom("H", 1, "6-31G", (0.0, 0.0, +1.0)),
-	Atom("F", 9, "6-31G", (0.0, 0.0, -1.0)),
-]
-Charge=0
-Multiplicity=1
-MaxExcitation=-1
+struct CIResults
+	EtotUHF::Float64
+	EtotCI::Float64
+	Ecorr::Float64
+	StateEnergies::Vector{Float64}
 
+	CIVectors::Matrix{Float64}
+	DeterminantSpace::Vector{Vector{Int}}
 
-Bohr2Ang=0.52917721092
-MolInBohr = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
-Molecule = MolInBohr
-
-BasisSet = generate_basis_list(Molecule)
-
-
-
-ONum=length(BasisSet)
-ENum=sum(atom.Z for atom in Molecule)-Charge
-NNum=length(Molecule)
-
-ENumAlpha=(ENum+Multiplicity-1)÷2
-ENumBeta=(ENum-Multiplicity+1)÷2
-
-
-
-
-
-S=[Sij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
-
-T=[Tij(BasisSet[i], BasisSet[j]) for i in 1:ONum, j in 1:ONum]
-
-V=[Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:ONum, j in 1:ONum]
-
-ERI_AO=[Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum]
-
-
-
-function format_to_custom_eng(x::Float64)
-	iszero(x) && return "0.000000E+00"
-	exponent = floor(Int, log10(abs(x))) + 1
-	mantissa = x / 10.0^exponent
-	return @sprintf("%1.6fE%+03d", mantissa, exponent)
-end
-
-
-function print_formatted_matrix(matrix::Matrix{Float64})
-	n = size(matrix, 1)
-	col_width = 15
-	header = "     " * join(lpad.(1:n, col_width))
-	println(header)
-	println(repeat("-", 5 + col_width * n))
-	for i in 1:n
-		print(rpad("$i|", 5))
-		row_str = join(lpad.(format_to_custom_eng.(matrix[i, :]), col_width))
-		println(row_str)
-	end
-end
-
-
-println("\nOverlap Matrix S:")
-print_formatted_matrix(S)
-println("\nKinetic Energy Matrix T:")
-print_formatted_matrix(T)
-println("\nNuclear Attraction Matrix V:")
-print_formatted_matrix(V)
-
-
-
-
-Hcore=T+V
-
-println("\nCore Hamiltonian Hcore:")
-print_formatted_matrix(Hcore)
-
-
-F=Hcore
-
-MaxIter=100
-Threshold=1e-10
-
-
-
-X=S^(-0.5)
-Fprime=X'*F*X
-E, Cprime=eigen(Fprime)
-C=X*Cprime
-p = sortperm(E)
-E=E[p]
-Cprime=Cprime[:, p]
-PAlpha=[sum(C[i, m]*C[j, m] for m in 1:ENumAlpha) for i in 1:ONum, j in 1:ONum]
-PBeta=[sum(C[i, m]*C[j, m] for m in 1:ENumBeta) for i in 1:ONum, j in 1:ONum]
-
-
-
-for i in 1:MaxIter
-	global PAlpha, PBeta, FAlpha, FBeta, FprimeAlpha, FprimeBeta, EAlpha, EBeta, CprimeAlpha, CprimeBeta, CAlpha, CBeta, GAlpha, GBeta, PnewAlpha, PnewBeta
-	Ptotal=PAlpha+PBeta
-	GAlpha = [sum(Ptotal[k, l]*ERI_AO[i, j, k, l] - PAlpha[k, l]*ERI_AO[i, l, k, j] for k in 1:ONum, l in 1:ONum) for i in 1:ONum, j in 1:ONum]
-	GBeta = [sum(Ptotal[k, l]*ERI_AO[i, j, k, l] - PBeta[k, l]*ERI_AO[i, l, k, j] for k in 1:ONum, l in 1:ONum) for i in 1:ONum, j in 1:ONum]
-	FAlpha=Hcore+GAlpha
-	FBeta=Hcore+GBeta
-	FprimeAlpha=X'*FAlpha*X
-	FprimeBeta=X'*FBeta*X
-	EAlpha, CprimeAlpha=eigen(FprimeAlpha)
-	EBeta, CprimeBeta=eigen(FprimeBeta)
-	pAlpha=sortperm(EAlpha)
-	pBeta=sortperm(EBeta)
-	EAlpha=EAlpha[pAlpha]
-	EBeta=EBeta[pBeta]
-	CprimeAlpha=CprimeAlpha[:, pAlpha]
-	CprimeBeta=CprimeBeta[:, pBeta]
-	CAlpha=X*CprimeAlpha
-	CBeta=X*CprimeBeta
-	PnewAlpha=[sum(CAlpha[i, m]*CAlpha[j, m] for m in 1:ENumAlpha) for i in 1:ONum, j in 1:ONum]
-	PnewBeta=[sum(CBeta[i, m]*CBeta[j, m] for m in 1:ENumBeta) for i in 1:ONum, j in 1:ONum]
-	delta_PAlpha = sqrt(sum((PnewAlpha - PAlpha) .^ 2))
-	delta_PBeta = sqrt(sum((PnewBeta - PBeta) .^ 2))
-	delta_P = max(delta_PAlpha, delta_PBeta)
-	println("Iteration $i: ΔP = $delta_P")
-	if delta_P < Threshold
-		println("UHF converged in $i iterations with ΔP = $delta_P")
-		PAlpha=PnewAlpha
-		PBeta=PnewBeta
-		break
-	end
-	PAlpha=PnewAlpha
-	PBeta=PnewBeta
-end
-
-Ee_UHF = 0.5 * (sum(PAlpha .* (Hcore + FAlpha)) + sum(PBeta .* (Hcore + FBeta)))
-VNN_UHF = sum(Molecule[i].Z * Molecule[j].Z / sqrt(sum((Molecule[i].position .- Molecule[j].position) .^ 2)) for i in 1:NNum for j in (i+1):NNum)
-Etot_UHF = Ee_UHF + VNN_UHF
-
-
-
-@printf("\n--- Molecular Structure ---\n")
-for i in 1:NNum
-	atom = Molecule[i]
-	@printf("Atom %d: %s (Z=%d) at (%+.6f, %+.6f, %+.6f) Å\n", i, atom.symbol, atom.Z, atom.position[1]*0.52918, atom.position[2]*0.52918, atom.position[3]*0.52918)
+	MaxExcitation::Int
+	NumberOfDeterminants::Int
 end
 
 
 
-@printf("\n--- Final Energy Results (UHF) ---\n")
-@printf("Total Energy      = %.10f Hartree\n", Etot_UHF)
-@printf("Electronic Energy = %.10f Hartree\n", Ee_UHF)
-@printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_UHF)
 
 
 
-SONum=2*ONum
 
-HcoreAlphaMO=CAlpha'*Hcore*CAlpha
-HcoreBetaMO=CBeta'*Hcore*CBeta
-
-hMO=[HcoreAlphaMO zeros(ONum, ONum); zeros(ONum, ONum) HcoreBetaMO]
-
-function TransERI(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64})
+function TransERI(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64}, ONum::Int)
 	return [sum(c1[i, p] * c2[j, q] * c3[k, r] * c4[l, s] * ERI_AO[i, j, k, l] for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum) for p in 1:ONum, q in 1:ONum, r in 1:ONum, s in 1:ONum]
 end
-println("\nTransforming ERIs to MO basis...")
-ERI_aaaa=TransERI(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha)
-ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta)
-ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta)
-ERI_abab=TransERI(ERI_AO, CAlpha, CBeta, CAlpha, CBeta)
-println("ERI transformation complete.")
+
 
 function GetERI(p::Int, r::Int, q::Int, s::Int, ONum::Int, aaaa, bbbb, aabb)
 	IsPA = p <= ONum
@@ -251,24 +100,14 @@ function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int
 		union!(DetAllLvl, UniqueDetListThisLvl)
 	end
 	println("--------------------------------------------\n")
-	return unique(DetAllLvl)
+	return collect(DetAllLvl)
 end
 
 
-OccAlpha=1:ENumAlpha
-OccBeta=(ONum+1):(ONum+ENumBeta)
-RefDeterminants=sort(vcat(collect(OccAlpha), collect(OccBeta)))
 
-if MaxExcitation==-1
-	NVir=SONum-ENum
-	FCILvl=min(ENum, NVir)
-	@printf("\nMaxExcit = -1 detected. Setting excitation level to %d for Full CI.\n", FCILvl)
-	global MaxExcitation=FCILvl
-end
 
-@printf("Generating CI space for excitation level <= %d...\n", MaxExcitation)
-Determinants=GenCISpace(RefDeterminants, 1:SONum, MaxExcitation)
-@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
+
+
 
 function GetPhase(p::Int, q::Int, CommonOrb::Vector{Int})
 	NInterOrbs = count(i -> (p < i < q) || (q < i < p), CommonOrb)
@@ -307,11 +146,14 @@ function CalcCI(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum
 		E1e = sum(hMO[i, i] for i in S1)
 		E2e = sum(GetERI(i, i, j, j, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) - GetERI(i, j, i, j, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for (idx, i) in enumerate(S1) for j in S1[(idx+1):end])
 		return E1e + E2e
-	elseif NDiff == 1
-		p=Diff1[1]
-		q=Diff2[1]
+	elseif NDiff == 1 # Single excitation difference
+		p = Diff1[1]
+		q = Diff2[1]
+		PPos = findfirst(==(p), S1)
+		QPos = findfirst(==(q), S2)
+		Phase = (-1)^(PPos + QPos)
+
 		OrbCommon=sort(collect(intersect(S1Set, S2Set)))
-		Phase=GetPhase(p, q, OrbCommon)
 		E1e=hMO[p, q]
 		E2e = sum(GetERI(p, q, i, i, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) - GetERI(p, i, q, i, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in OrbCommon)
 		return (E1e + E2e)*Phase
@@ -324,21 +166,82 @@ function CalcCI(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum
 	end
 end
 
-
-CI=[CalcCI(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
-
-
-E_CI, C_CI=eigen(CI)
-
-Ee_FCI=E_CI[1]
-VNN_FCI = sum(Molecule[i].Z * Molecule[j].Z / sqrt(sum((Molecule[i].position .- Molecule[j].position) .^ 2)) for i in 1:NNum for j in (i+1):NNum)
-Etot_FCI = Ee_FCI + VNN_FCI
-
-@printf("\n--- Final Energy Results (FCI) ---\n")
-@printf("Total Energy      = %.10f Hartree\n", Etot_FCI)
-@printf("Electronic Energy = %.10f Hartree\n", Ee_FCI)
-@printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_FCI)
+function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
+	Molecule = SCF_Results.Molecule
+	ONum = length(SCF_Results.BasisSet)
+	ENumAlpha = SCF_Results.ENumAlpha
+	ENumBeta = SCF_Results.ENumBeta
+	Hcore = SCF_Results.Hcore
+	CAlpha = SCF_Results.CAlpha
+	CBeta = SCF_Results.CBeta
+	ERI_AO = SCF_Results.ERI
+	Ee_UHF=SCF_Results.Ee
+	VNN_UHF=SCF_Results.VNN
+	Etot_UHF=SCF_Results.Etot
 
 
-Time2=time_ns()
-println("\nTotal Time: %.2f seconds\n", (Time2-Time1)/1e9)
+	ENum = ENumAlpha + ENumBeta
+	NNum = length(Molecule)
+
+	SONum=2*ONum
+	SONum=2*ONum
+
+	HcoreAlphaMO=CAlpha'*Hcore*CAlpha
+	HcoreBetaMO=CBeta'*Hcore*CBeta
+
+	hMO=[HcoreAlphaMO zeros(ONum, ONum); zeros(ONum, ONum) HcoreBetaMO]
+	println("\nTransforming ERIs to MO basis...")
+	ERI_aaaa=TransERI(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha, ONum)
+	ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta, ONum)
+	ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta, ONum)
+	println("ERI transformation complete.")
+
+	OccAlpha=1:ENumAlpha
+	OccBeta=(ONum+1):(ONum+ENumBeta)
+	RefDeterminants=sort(vcat(collect(OccAlpha), collect(OccBeta)))
+
+	if MaxExcitation==-1
+		NVir=SONum-ENum
+		FCILvl=min(ENum, NVir)
+		@printf("\nMaxExcit = -1 detected. Setting excitation level to %d for Full CI.\n", FCILvl)
+		MaxExcitation=FCILvl
+	end
+
+	@printf("Generating CI space for excitation level <= %d...\n", MaxExcitation)
+	Determinants=GenCISpace(RefDeterminants, 1:SONum, MaxExcitation)
+	@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
+
+	println("\nBuilding and diagonalizing CI Matrix...")
+	CI_Matrix = [CalcCI(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
+	E_CI, C_CI = eigen(CI_Matrix)
+	println("CI Matrix diagonalization complete.")
+
+	Ee_CI = E_CI[1]
+	VNN_CI = VNN_UHF
+	Etot_CI = Ee_CI + VNN_CI
+	Ecorr = Etot_CI - Etot_UHF
+	EStates = E_CI .+ VNN_CI
+
+	@printf("\n--- Final Energy Results (CI) ---\n")
+	@printf("Total Energy      = %.10f Hartree\n", Etot_CI)
+	@printf("Electronic Energy = %.10f Hartree\n", Ee_CI)
+	@printf("Nuclear Repulsion =  %.10f Hartree\n", VNN_CI)
+	return CIResults(
+		Etot_UHF,
+		Etot_CI,
+		Ecorr,
+		EStates,
+		C_CI,
+		Determinants,
+		MaxExcitation,
+		length(Determinants),
+	)
+end
+
+
+
+end
+
+
+
+
