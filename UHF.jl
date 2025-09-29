@@ -1,7 +1,6 @@
-
-
 using LinearAlgebra
 using Printf
+using Dates
 
 include("Definitions.jl")
 include("GetBasisList.jl")
@@ -82,12 +81,24 @@ using ..CalcG: Gijkl
 
 export SCF
 
-function CalcSTVG(BasisSet, Molecule)
+function CalcMatrices(BasisSet, Molecule)
 	BNum = length(BasisSet)
+	TimeS1=time_ns()
 	S = [Sij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
+	TimeS2=time_ns()
+	println("Calculation for S Matrix took $( (TimeS2-TimeS1)/1e6 ) ms")
+	TimeT1=time_ns()
 	T = [Tij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
+	TimeT2=time_ns()
+	println("Calculation for T Matrix took $( (TimeT2-TimeT1)/1e6 ) ms")
+	TimeV1=time_ns()
 	V = [Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:BNum, j in 1:BNum]
+	TimeV2=time_ns()
+	println("Calculation for V Matrix took $( (TimeV2-TimeV1)/1e6 ) ms")
+	TimeERI1=time_ns()
 	ERI = [Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:BNum, j in 1:BNum, k in 1:BNum, l in 1:BNum]
+	TimeERI2=time_ns()
+	println("Calculation for ERI Tensor took $( (TimeERI2-TimeERI1)/1e6 ) ms")
 	return S, T, V, ERI
 end
 
@@ -102,12 +113,11 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 	@printf("Basis functions: %d\n", BNum)
 	@printf("Alpha electrons: %d\n", ENumAlpha)
 	@printf("Beta electrons:  %d\n", ENumBeta)
-	println("------------------------\n")
+	println("--------------------------\n")
 
-	@time S, T, V, ERI = CalcSTVG(BasisSet, Molecule)
+	S, T, V, ERI = CalcMatrices(BasisSet, Molecule)
 	Hcore = T + V
 	X = S^(-0.5)
-
 	EGuess, CGuess = eigen(X' * Hcore * X)
 	C = X * CGuess[:, sortperm(EGuess)]
 	PAlpha = C[:, 1:ENumAlpha] * C[:, 1:ENumAlpha]'
@@ -159,6 +169,7 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 			@printf("Electronic Energy = %.10f Hartree\n", Ee)
 			@printf("Nuclear Repulsion = %.10f Hartree\n", VNN)
 			@printf("Total Energy      = %.10f Hartree\n", Etot)
+			println("----------------------------\n")
 			return Etot
 		end
 	end
@@ -169,10 +180,10 @@ end
 end
 
 function main()
-
+	TStart=time_ns()
 	MolInAng = [
-		Atom("H", 1, "6-31G", (0.0, 0.0, 0.0)),
-		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)), # Set bond length to 1.0 Å
+		Atom("H", 1, "6-31G", (0.0, 0.0, -1.0)),
+		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)),
 	]
 	Charge = 0
 	Multiplicity = 1
@@ -186,7 +197,17 @@ function main()
 	end
 	println("---------------------------\n")
 
-	UHF.SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-8)
+	UHF.SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
+	TEnd=time_ns()
+	TSeconds = (TEnd - TStart) / 1e9
+	days = floor(Int, TSeconds / 86400)
+	hours = floor(Int, (TSeconds % 86400) / 3600)
+	minutes = floor(Int, (TSeconds % 3600) / 60)
+	seconds = TSeconds % 60
+	DateTime = Dates.format(now(), "e u dd HH:MM:SS yyyy")
+	@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	println(" Normal termination of Julia HF at $(DateTime).")
 end
 
 main()
