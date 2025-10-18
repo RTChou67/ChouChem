@@ -1,5 +1,3 @@
-
-
 module CI
 
 using LinearAlgebra
@@ -25,12 +23,6 @@ struct CIResults
 	MaxExcitation::Int
 	NumberOfDeterminants::Int
 end
-
-
-
-
-
-
 
 function TransERI(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64}, ONum::Int)
 	return [sum(c1[i, p] * c2[j, q] * c3[k, r] * c4[l, s] * ERI_AO[i, j, k, l] for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum) for p in 1:ONum, q in 1:ONum, r in 1:ONum, s in 1:ONum]

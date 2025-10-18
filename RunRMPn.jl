@@ -13,8 +13,8 @@ using .Definitions
 
 function main()
 	MolInAng = [
-		Atom("H", 1, "STO-3G", (0.0, 0.0, 0.0)),
-		Atom("F", 9, "STO-3G", (0.0, 0.0, 1.0)),
+		Atom("H", 1, "STO-3G", (0.0, 0.0, -1.0)),
+		Atom("F", 9, "STO-3G", (0.0, 0.0, +1.0)),
 	]
 	Charge = 0
 	Multiplicity = 1
@@ -34,11 +34,6 @@ function main()
 		if MPn_Results !== nothing
 			println("MP2 Total Energy: ", MPn_Results.E_RMP2_total, " Hartree")
 		end
-		#=
-		if order >= 3 && MPn_Results !== nothing
-			println("MP3 Total Energy: ", MPn_Results.E_RMP3_total, " Hartree")
-		end
-		=#
 		println("-------------------------\n")
 
 	else

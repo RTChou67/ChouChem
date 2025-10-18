@@ -14,47 +14,13 @@ function TransG(G_AO::Array{Float64, 4}, C::Matrix{Float64})
 	NMO = size(C, 2)
 
 	println("\n--- Starting Integral Transformation ---")
-	println("[1/4] Transforming First Index...")
-	Tmp1 = zeros(NMO, NMO, NMO, NMO)
-	for p in 1:NMO, j in 1:NMO, k in 1:NMO, l in 1:NMO
-		sum_val = 0.0
-		for i in 1:NMO
-			sum_val += C[i, p] * G_AO[i, j, k, l]
-		end
-		Tmp1[p, j, k, l] = sum_val
-	end
-
-	println("[2/4] Transforming Second Index...")
-	Tmp2 = zeros(NMO, NMO, NMO, NMO)
-	for p in 1:NMO, q in 1:NMO, k in 1:NMO, l in 1:NMO
-		sum_val = 0.0
-		for j in 1:NMO
-			sum_val += C[j, q] * Tmp1[p, j, k, l]
-		end
-		Tmp2[p, q, k, l] = sum_val
-	end
-
-	println("[3/4] Transforming Third Index...")
-	Tmp3 = zeros(NMO, NMO, NMO, NMO)
-	for p in 1:NMO, q in 1:NMO, r in 1:NMO, l in 1:NMO
-		sum_val = 0.0
-		for k in 1:NMO
-			sum_val += C[k, r] * Tmp2[p, q, k, l]
-		end
-		Tmp3[p, q, r, l] = sum_val
-	end
-
-	println("[4/4] Transforming Fourth Index...")
 	G_MO = zeros(NMO, NMO, NMO, NMO)
 	for p in 1:NMO, q in 1:NMO, r in 1:NMO, s in 1:NMO
-		sum_val = 0.0
-		for l in 1:NMO
-			sum_val += C[l, s] * Tmp3[p, q, r, l]
+		for a in 1:NMO, b in 1:NMO, c in 1:NMO, d in 1:NMO
+			G_MO[p, q, r, s] += C[a, p] * C[b, q] * C[c, r] * C[d, s] * G_AO[a, b, c, d]
 		end
-		G_MO[p, q, r, s] = sum_val
 	end
-
-	println("--- Integral Transformation Finished ---\n")
+	println("--- Integral Transformation Completed ---\n")
 	return G_MO
 end
 
@@ -68,18 +34,20 @@ function CalcRMP2(G_MO::Array{Float64, 4}, E_MO::Vector{Float64}, NOcc::Int)
 
 	E_RMP2_Corr = 0.0
 
-	for i in 1:NOcc, j in 1:NOcc, a in 1:NVir, b in 1:NVir
-		aIdx = a + NOcc
-		bIdx = b + NOcc
+	for i in 1:NOcc, j in 1:NOcc
+		for a in 1:NVir, b in 1:NVir
+			aIdx = a + NOcc
+			bIdx = b + NOcc
 
-		Denom = EOcc[i] + EOcc[j] - EVir[a] - EVir[b]
+			Denom = EOcc[i] + EOcc[j] - EVir[a] - EVir[b]
 
-		integral_iajb = G_MO[i, aIdx, j, bIdx]
-		integral_ibja = G_MO[i, bIdx, j, aIdx]
+			integral_iajb = G_MO[i, aIdx, j, bIdx]
+			integral_ibja = G_MO[i, bIdx, j, aIdx]
 
-		TAmp[i, j, a, b] = (2 * integral_iajb - integral_ibja) / Denom
+			TAmp[i, j, a, b] = (2 * integral_iajb - integral_ibja) / Denom
 
-		E_RMP2_Corr += integral_iajb * TAmp[i, j, a, b]
+			E_RMP2_Corr += integral_iajb * TAmp[i, j, a, b]
+		end
 	end
 
 	return E_RMP2_Corr, TAmp
