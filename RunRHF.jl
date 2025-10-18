@@ -1,29 +1,19 @@
-
-using Printf
-using Dates
-
-include("Definitions.jl")
+module RunRHF
+using ..Definitions
 include("GetBasisList.jl")
 include("CalcS.jl")
 include("CalcT.jl")
 include("CalcV.jl")
 include("CalcG.jl")
 include("RHF.jl")
-
+using Dates
 using .RHF
-using .Definitions
 
-function main()
+
+export main
+
+function main(MolInAng::Vector{Atom}, Charge::Int)
 	TStart = time_ns()
-
-	MolInAng = [
-		Atom("O", 8, "STO-6G", (0.0, 0.0, 0.0)),
-		Atom("H", 1, "STO-6G", (0.0, -1, 0)),
-		Atom("H", 1, "STO-6G", (0.0, 1, 0)),
-	]
-	Charge = 0
-
-
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
 
@@ -33,7 +23,7 @@ function main()
 	end
 	println("---------------------------\n")
 
-	SCF_Results = RHF.SCF(Molecule, Charge, MaxIter = 100, Threshold = 1e-10)
+	SCF_Results = RHF.SCF(Molecule, Charge, MaxIter = 100, Threshold = 1e-8)
 
 	if isnothing(SCF_Results)
 		error("RHF calculation did not converge. Aborting.")
@@ -53,4 +43,4 @@ function main()
 	println(" Normal termination of Julia RHF at $(DateTime).")
 end
 
-main()
+end

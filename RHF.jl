@@ -1,5 +1,3 @@
-# RHF.jl
-
 module RHF
 
 using LinearAlgebra

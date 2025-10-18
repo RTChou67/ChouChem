@@ -1,9 +1,6 @@
+module RunUHF
 
-using Printf
-using Dates
-
-
-include("Definitions.jl")
+using ..Definitions
 include("GetBasisList.jl")
 include("CalcS.jl")
 include("CalcT.jl")
@@ -11,18 +8,15 @@ include("CalcV.jl")
 include("CalcG.jl")
 include("UHF.jl")
 
-using .Definitions
+
 using .UHF
 
+export main
 
-function main()
+
+function main(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int)
 	TStart=time_ns()
-	MolInAng = [
-		Atom("H", 1, "6-31G", (0.0, 0.0, -1.0)),
-		Atom("F", 9, "6-31G", (0.0, 0.0, 1.0)),
-	]
-	Charge = 0
-	Multiplicity = 1
+
 
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
@@ -53,4 +47,5 @@ function main()
 	println(" Normal termination of Julia UHF at $(DateTime).")
 end
 
-main()
+
+end

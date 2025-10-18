@@ -1,4 +1,6 @@
-include("Definitions.jl")
+module RunCI
+
+using ..Definitions
 include("GetBasisList.jl")
 include("CalcS.jl")
 include("CalcT.jl")
@@ -7,16 +9,11 @@ include("CalcG.jl")
 include("UHF.jl")
 include("CI.jl")
 
+export main
 
-function main()
+function main(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcitation::Int)
 	TStart=time_ns()
-	MolInAng = [
-		Atom("H", 1, "STO-3G", (0.0, 0.0, 0.0)),
-		Atom("F", 9, "STO-3G", (0.0, 0.0, 1.0)),
-	]
-	Charge = 0
-	Multiplicity = 1
-	MaxExcitation = -1
+
 
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
@@ -40,11 +37,11 @@ function main()
 	end
 
 	println("\n--- Post-CI Analysis ---")
-	
+
 
 	println("\nGround State Wavefunction Analysis (Top 5 components):")
 	GroundStateVector = CI_Results.CIVectors[:, 1]
-    
+
 	sorted_indices = sortperm(abs.(GroundStateVector), rev = true)
 
 	RefDeterminant = CI_Results.DeterminantSpace[1]
@@ -76,4 +73,6 @@ function main()
 
 end
 
-main()
+
+
+end
