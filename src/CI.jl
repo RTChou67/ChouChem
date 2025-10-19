@@ -64,34 +64,57 @@ end
 
 
 function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int)
-	OccOrbs=RefDet
-	VirOrbs=collect(setdiff(Set(collect(OrbRange)), Set(OccOrbs)))
+
+	# 1. 确保参考行列式是排序的 (健壮性)
+	SortedRefDet = sort(RefDet)
+	OccOrbs = SortedRefDet
+
+	# 2. 识别虚拟轨道 (逻辑正确)
+	VirOrbs = collect(setdiff(Set(collect(OrbRange)), Set(OccOrbs)))
 
 	println("\n--- Excitation Analysis ---")
-	DetAllLvl=Set([RefDet])
+
+	# 3. 初始化总空间，存入排序后的参考态
+	DetAllLvl = Set([SortedRefDet])
 	@printf("Number of 0-fold excitations: %d\n", 1)
+
 	for Lvl in 1:MaxExcit
-		if Lvl>length(OccOrbs) || Lvl>length(VirOrbs)
+		# 4. 检查激发是否可能 (逻辑正确)
+		if Lvl > length(OccOrbs) || Lvl > length(VirOrbs)
+			@printf("Max excitation level (%d) reached capacity at Lvl=%d. Stopping.\n", MaxExcit, Lvl-1)
 			break
 		end
-		DetThisLvl=[]
 
-		OccComb=combinations(OccOrbs, Lvl)
-		VirComb=combinations(VirOrbs, Lvl)
+		# 5. 初始化此等级的行列式列表 (类型稳定)
+		DetThisLvl = Vector{Vector{Int}}()
+
+		OccComb = combinations(OccOrbs, Lvl)
+		VirComb = combinations(VirOrbs, Lvl)
+
 		for Occ in OccComb
-			BaseDetSet=setdiff(Set(OccOrbs), Set(Occ))
+			# 6. BaseDetSet在内层循环(Vir)之外计算，效率高 (逻辑正确)
+			BaseDetSet = setdiff(Set(OccOrbs), Set(Occ))
 			for Vir in VirComb
-				NewDetSet=union(BaseDetSet, Set(Vir))
+				NewDetSet = union(BaseDetSet, Set(Vir))
+				# 7. 排序以保证规范性 (逻辑正确)
 				push!(DetThisLvl, sort(collect(NewDetSet)))
 			end
 		end
-		UniqueDetListThisLvl=unique(DetThisLvl)
-		CountThisLvl=length(UniqueDetListThisLvl)
+
+		# 8. (已修复) 移除冗余的 `unique` 调用
+		# DetThisLvl 已经是唯一的
+		CountThisLvl = length(DetThisLvl)
 
 		@printf("Number of %-2d-fold excitations: %d\n", Lvl, CountThisLvl)
-		union!(DetAllLvl, UniqueDetListThisLvl)
+
+		# 9. (已修复)直接使用 DetThisLvl
+		union!(DetAllLvl, DetThisLvl)
 	end
+
+	println("--------------------------------------------")
+	@printf("Total number of configurations: %d\n", length(DetAllLvl))
 	println("--------------------------------------------\n")
+
 	return collect(DetAllLvl)
 end
 
@@ -110,14 +133,14 @@ function GetPhase(S1::Vector{Int}, p::Int, q::Int, r::Int, s::Int)
 	PositionP = findfirst(==(p), S1)
 	PositionQ = findfirst(==(q), S1)
 
-	PhaseAnnihilate = (-1)^(PositionP - 1 + PositionQ - 2)
+	PhaseAnnihilate = (-1)^(PositionP + PositionQ)
 
 	S2 = sort(vcat(collect(setdiff(S1, [p, q])), [r, s]))
 
 	PositionR = findfirst(==(r), S2)
 	PositionS = findfirst(==(s), S2)
 
-	PhaseCreate = (-1)^(PositionR - 1 + PositionS - 2)
+	PhaseCreate = (-1)^(PositionR + PositionS)
 
 	return PhaseAnnihilate * PhaseCreate
 end
@@ -175,7 +198,6 @@ function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	ENum = ENumAlpha + ENumBeta
 	NNum = length(Molecule)
 
-	SONum=2*ONum
 	SONum=2*ONum
 
 	HcoreAlphaMO=CAlpha'*Hcore*CAlpha

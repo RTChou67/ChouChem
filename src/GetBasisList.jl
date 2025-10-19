@@ -1,4 +1,3 @@
-# GetBasisList.jl
 using Printf
 
 module GetBasisList
@@ -6,7 +5,8 @@ using ..Definitions: PGTF, CGTF, Basis, Atom
 export generate_basis_list, get_basis_set
 
 const LoadedBasisSets = Dict{String, Dict{Int, Vector{CGTF}}}()
-const BASIS_SET_DIR = "Basis"
+const PROJECT_DIR = joinpath(@__DIR__, "..")
+const BASIS_SET_DIR = joinpath(PROJECT_DIR, "Basis")
 const BasisNameToFile = include(joinpath(BASIS_SET_DIR, "BasisList.jl"))
 
 
