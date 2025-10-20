@@ -1,16 +1,3 @@
-module CI
-
-using LinearAlgebra
-using Printf
-using Combinatorics
-
-
-using ..UHF: UHFResults
-using ..Definitions: Atom
-
-
-export RunCI, CIResults
-
 struct CIResults
 	EtotUHF::Float64
 	EtotCI::Float64
@@ -64,50 +51,36 @@ end
 
 
 function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int)
-
-	# 1. 确保参考行列式是排序的 (健壮性)
 	SortedRefDet = sort(RefDet)
 	OccOrbs = SortedRefDet
-
-	# 2. 识别虚拟轨道 (逻辑正确)
 	VirOrbs = collect(setdiff(Set(collect(OrbRange)), Set(OccOrbs)))
 
 	println("\n--- Excitation Analysis ---")
-
-	# 3. 初始化总空间，存入排序后的参考态
 	DetAllLvl = Set([SortedRefDet])
 	@printf("Number of 0-fold excitations: %d\n", 1)
 
 	for Lvl in 1:MaxExcit
-		# 4. 检查激发是否可能 (逻辑正确)
 		if Lvl > length(OccOrbs) || Lvl > length(VirOrbs)
 			@printf("Max excitation level (%d) reached capacity at Lvl=%d. Stopping.\n", MaxExcit, Lvl-1)
 			break
 		end
 
-		# 5. 初始化此等级的行列式列表 (类型稳定)
 		DetThisLvl = Vector{Vector{Int}}()
 
 		OccComb = combinations(OccOrbs, Lvl)
 		VirComb = combinations(VirOrbs, Lvl)
 
 		for Occ in OccComb
-			# 6. BaseDetSet在内层循环(Vir)之外计算，效率高 (逻辑正确)
 			BaseDetSet = setdiff(Set(OccOrbs), Set(Occ))
 			for Vir in VirComb
 				NewDetSet = union(BaseDetSet, Set(Vir))
-				# 7. 排序以保证规范性 (逻辑正确)
 				push!(DetThisLvl, sort(collect(NewDetSet)))
 			end
 		end
 
-		# 8. (已修复) 移除冗余的 `unique` 调用
-		# DetThisLvl 已经是唯一的
 		CountThisLvl = length(DetThisLvl)
 
 		@printf("Number of %-2d-fold excitations: %d\n", Lvl, CountThisLvl)
-
-		# 9. (已修复)直接使用 DetThisLvl
 		union!(DetAllLvl, DetThisLvl)
 	end
 
@@ -117,11 +90,6 @@ function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int
 
 	return collect(DetAllLvl)
 end
-
-
-
-
-
 
 
 function GetPhase(p::Int, q::Int, CommonOrb::Vector{Int})
@@ -145,10 +113,7 @@ function GetPhase(S1::Vector{Int}, p::Int, q::Int, r::Int, s::Int)
 	return PhaseAnnihilate * PhaseCreate
 end
 
-
-
-
-function CalcCI(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum::Int, ERI_aaaa, ERI_bbbb, ERI_aabb)
+function CalcCIHij(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum::Int, ERI_aaaa, ERI_bbbb, ERI_aabb)
 	S1Set=Set(S1)
 	S2Set=Set(S2)
 	Diff1=sort(collect(setdiff(S1Set, S2Set)))
@@ -161,7 +126,7 @@ function CalcCI(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum
 		E1e = sum(hMO[i, i] for i in S1)
 		E2e = sum(GetERI(i, i, j, j, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) - GetERI(i, j, i, j, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for (idx, i) in enumerate(S1) for j in S1[(idx+1):end])
 		return E1e + E2e
-	elseif NDiff == 1 # Single excitation difference
+	elseif NDiff == 1
 		p = Diff1[1]
 		q = Diff2[1]
 		PPos = findfirst(==(p), S1)
@@ -181,7 +146,7 @@ function CalcCI(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum
 	end
 end
 
-function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
+function CalcCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	Molecule = SCF_Results.Molecule
 	ONum = length(SCF_Results.BasisSet)
 	ENumAlpha = SCF_Results.ENumAlpha
@@ -193,7 +158,6 @@ function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	Ee_UHF=SCF_Results.Ee
 	VNN_UHF=SCF_Results.VNN
 	Etot_UHF=SCF_Results.Etot
-
 
 	ENum = ENumAlpha + ENumBeta
 	NNum = length(Molecule)
@@ -226,7 +190,7 @@ function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
 
 	println("\nBuilding and diagonalizing CI Matrix...")
-	CI_Matrix = [CalcCI(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
+	CI_Matrix = [CalcCIHij(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
 	E_CI, C_CI = eigen(CI_Matrix)
 	println("CI Matrix diagonalization complete.")
 
@@ -253,9 +217,65 @@ function RunCI(SCF_Results::UHFResults, MaxExcitation::Int)
 end
 
 
+function RunCI(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcitation::Int)
+	TStart=time_ns()
+
+
+	Bohr2Ang = 0.52917721092
+	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
+
+	@printf("\n--- Molecular Structure ---\n")
+	for atom in MolInAng
+		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
+	end
+	println("---------------------------\n")
+
+	SCF_Results=UHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
+	if isnothing(SCF_Results)
+		error("UHF calculation did not converge. Aborting.")
+		return
+	else
+		CI_Results=CalcCI(SCF_Results, MaxExcitation)
+		if isnothing(CI_Results)
+			error("CI calculation did not converge. Aborting.")
+			return
+		end
+	end
+
+	println("\n--- Post-CI Analysis ---")
+
+
+	println("\nGround State Wavefunction Analysis (Top 5 components):")
+	GroundStateVector = CI_Results.CIVectors[:, 1]
+
+	sorted_indices = sortperm(abs.(GroundStateVector), rev = true)
+
+	RefDeterminant = CI_Results.DeterminantSpace[1]
+	@printf("  Coeff    | Contribution  | Determinant Configuration\n")
+	println("  -----------------------------------------------------")
+	for i in 1:min(5, CI_Results.NumberOfDeterminants)
+		idx = sorted_indices[i]
+		coeff = GroundStateVector[idx]
+		determinant = CI_Results.DeterminantSpace[idx]
+		is_ref = (determinant == RefDeterminant) ? "(Ref)" : ""
+		@printf("  %-8.4f | %-12.2f%% | %s %s\n", coeff, coeff^2 * 100, determinant, is_ref)
+	end
+	println("  -----------------------------------------------------\n")
+
+
+
+	TEnd=time_ns()
+	TSeconds = (TEnd - TStart) / 1e9
+	days = floor(Int, TSeconds / 86400)
+	hours = floor(Int, (TSeconds % 86400) / 3600)
+	minutes = floor(Int, (TSeconds % 3600) / 60)
+	seconds = TSeconds % 60
+	DateTime = Dates.format(now(), "e u dd HH:MM:SS yyyy")
+	@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	println(" Normal termination of Julia UHF-CI at $(DateTime).")
+
+
 
 end
-
-
-
 
