@@ -1,7 +1,6 @@
 using Printf
 
 include("Definitions.jl")
-using ..Definitions: PGTF, CGTF
 
 
 const ELEMENTS = Dict(

@@ -9,6 +9,8 @@ BasisList = Dict(
     "STO-4G" => "STO-4G.jl",
     "STO-5G" => "STO-5G.jl",
     "STO-6G" => "STO-6G.jl",
+    "cc-pVDZ" => "cc-pVDZ.jl",
+    "cc-pVTZ" => "cc-pVTZ.jl",
     "def2-QZVP" => "def2-QZVP.jl",
     "def2-TZVP" => "def2-TZVP.jl",
 )
