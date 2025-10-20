@@ -1,40 +1,3 @@
-module CalcV
-
-using ..Definitions: PGTF, Basis, Atom
-using SpecialFunctions: binomial, gamma, erf
-using LinearAlgebra
-
-export Vij
-
-function double_factorial(m::Int)
-	if m <= 1
-		return 1.0
-	end
-	if isodd(m)
-		n = (m + 1) / 2
-		return 2.0^n * gamma(n + 0.5) / sqrt(pi)
-	else
-		k = m / 2
-		return 2.0^k * factorial(k)
-	end
-end
-
-function boys(m::Int, x::Float64)
-	if x == 0.0
-		return 1.0 / (2m + 1)
-	end
-
-
-	if x < 1e-8
-		return 1.0 / (2m + 1) - x / (2m + 3)
-	end
-
-	s = m + 0.5
-
-	return 0.5 * x^(-s) * (gamma(s) - gamma(s, x))
-end
-
-# ----------------- 1D Hermite-like 系数 -----------------
 function Hij_1D(Idx, l1::Int64, l2::Int64, R1D1::Float64, R1D2::Float64, alpha1, alpha2)
 	p=alpha1+alpha2
 	u = (alpha1 * alpha2) / p
@@ -116,6 +79,4 @@ function Vij(basis1::Basis, basis2::Basis, atoms::Vector{Atom})
 		end
 	end
 	return V_total
-end
-
 end

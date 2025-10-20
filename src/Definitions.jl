@@ -1,7 +1,3 @@
-module Definitions
-
-export PGTF, CGTF, Basis, Atom
-
 struct PGTF
 	alpha::Float64
 	coeff::Float64
@@ -24,7 +20,4 @@ struct Atom
 	Z::Int
 	basis_set::String
 	position::NTuple{3, Float64}
-end
-
-
 end

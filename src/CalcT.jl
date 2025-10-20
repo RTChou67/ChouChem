@@ -1,25 +1,3 @@
-module CalcT
-
-using ..Definitions: PGTF, Basis
-using SpecialFunctions: binomial, gamma
-
-export Tij
-
-
-function double_factorial(m::Int)
-	if m <= 1
-		return 1.0
-	end
-	if isodd(m)
-		n = (m + 1) ÷ 2
-		return 2.0^n * gamma(n + 0.5) / sqrt(pi)
-	else
-		k = m ÷ 2
-		return 2.0^k * factorial(k)
-	end
-end
-
-
 function overlap_1D(l1::Int, l2::Int, A::Float64, B::Float64, alpha1::Float64, alpha2::Float64, p::Float64)
 	if l1 < 0 || l2 < 0
 		return 0.0
@@ -97,6 +75,4 @@ function Tij(basis1::Basis, basis2::Basis)
 	end
 
 	return T_total
-end
-
 end

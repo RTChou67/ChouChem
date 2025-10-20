@@ -4,36 +4,38 @@ using LinearAlgebra
 using Printf
 using Combinatorics
 using Dates
+using Quadmath
+using SpecialFunctions
 
 include("Definitions.jl")
-include("GetBasisList.jl")
+include("MathFunctions.jl")
+
 include("CalcS.jl")
 include("CalcT.jl")
 include("CalcV.jl")
 include("CalcG.jl")
 
+include("GetBasisList.jl")
+
 include("RHF.jl")
-include("RunRHF.jl")
-
 include("UHF.jl")
-include("RunUHF.jl")
-
 include("RMPn.jl")
-include("RunRMPn.jl")
+#include("RunRMPn.jl")
 
-include("CI.jl")
-include("RunCI.jl")
+#include("CI.jl")
+#include("RunCI.jl")
 
-run_rhf(MolInAng::Vector{Atom}, Charge::Int) = RunRHF.main(MolInAng, Charge)
-run_uhf(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int) = RunUHF.main(MolInAng, Charge, Multiplicity)
-run_rmpn(MolInAng::Vector{Atom}, Charge::Int, order::Int) = RunRMPn.main(MolInAng, Charge, order)
-run_ci(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcitation::Int) = RunCI.main(MolInAng, Charge, Multiplicity, MaxExcitation)
+run_rhf(MolInAng::Vector{Atom}, Charge::Int) = RunRHF(MolInAng, Charge)
+run_uhf(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int) = RunUHF(MolInAng, Charge, Multiplicity)
+run_rmpn(MolInAng::Vector{Atom}, Charge::Int, order::Int) = RunRMPn(MolInAng, Charge, order)
+#run_ci(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcitation::Int) = RunCI.main(MolInAng, Charge, Multiplicity, MaxExcitation)
 
-export Atom
-export run_rhf
-export run_uhf
-export run_rmpn
-export run_ci
+export RunRHF
+export RunUHF
+export RunRMPn
 
+export Atom, Basis, CGTF, PGTF
+export generate_basis_list
+export Sij, Tij, Vij, Gijkl
 
 end

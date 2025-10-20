@@ -1,13 +1,3 @@
-module RMPn
-
-using LinearAlgebra
-using Printf
-
-using ..RHF: RHFResults
-using ..Definitions: Atom
-
-export RunMPn
-
 antisym(G_MO, p, q, r, s) = G_MO[p, q, r, s] - G_MO[p, q, s, r]
 
 function TransG(G_AO::Array{Float64, 4}, C::Matrix{Float64})
@@ -53,7 +43,7 @@ function CalcRMP2(G_MO::Array{Float64, 4}, E_MO::Vector{Float64}, NOcc::Int)
 	return E_RMP2_Corr, TAmp
 end
 
-function RunRMPn(RHF_Results::RHFResults, order::Int)
+function RMPn(RHF_Results::RHFResults, order::Int)
 	println("--- Starting Restricted MPn Calculation ---")
 
 	C = RHF_Results.C
@@ -74,20 +64,42 @@ function RunRMPn(RHF_Results::RHFResults, order::Int)
 	println("----------------------------\n")
 	if order==2
 		return (E_RMP2_Corr = E_RMP2_Corr, E_RMP2_total = E_RMP2_total)
-		#=
-		elseif order==3
-		E_RMP3_Corr=CalcRMP3(G_MO, e, NOcc, TAmp)[1]
-		E_RMP3_total=EtotRHF+E_RMP2_Corr+E_RMP3_Corr
-		@printf("\n--- MP3 Energy Results ---\n")
-		@printf("MP3 Correlation Energy = %.10f Hartree\n", E_RMP3_Corr)
-		@printf("Total MP3 Energy       = %.10f Hartree\n", E_RMP3_total)
-		println("----------------------------\n")
-		return (E_RMP2_corr = E_RMP2_Corr, E_RMP2_total = E_RMP2_total, E_RMP3_corr = E_RMP3_Corr, E_RMP3_total = E_RMP3_total)
-		=#
 	else
 		println("Higher order MPn not implemented yet.")
 		return nothing
 	end
 end
 
+function RunRMPn(MolInAng::Vector{Atom}, Charge::Int, order::Int)
+	TStart=time_ns()
+
+	Bohr2Ang = 0.52917721092
+	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
+
+	RHF_Results = RHF_SCF(Molecule, Charge; MaxIter = 100, Threshold = 1e-8)
+
+	if RHF_Results !== nothing
+		println("RHF Calculation Successful. Proceeding to MPn.")
+
+		MPn_Results = RMPn(RHF_Results, order)
+		println("\n--- Calculation Summary ---")
+		println("RHF Total Energy: ", RHF_Results.Etot, " Hartree")
+		if MPn_Results !== nothing
+			println("MP2 Total Energy: ", MPn_Results.E_RMP2_total, " Hartree")
+			TEnd=time_ns()
+			TSeconds = (TEnd - TStart) / 1e9
+			days = floor(Int, TSeconds / 86400)
+			hours = floor(Int, (TSeconds % 86400) / 3600)
+			minutes = floor(Int, (TSeconds % 3600) / 60)
+			seconds = TSeconds % 60
+			DateTime = Dates.format(now(), "e u dd HH:MM:SS yyyy")
+			@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+			@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+			println(" Normal termination of Julia RMPn at $(DateTime).")
+		end
+		println("-------------------------\n")
+
+	else
+		println("RHF calculation failed to converge. Cannot perform MPn calculation.")
+	end
 end

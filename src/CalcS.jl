@@ -1,11 +1,3 @@
-module CalcS
-
-using ..Definitions: PGTF, Basis
-using SpecialFunctions: binomial, gamma
-
-export Sij
-
-
 function S1D(l1::Int, l2::Int, A::Float64, B::Float64, alpha1::Float64, alpha2::Float64)
 	p=alpha1+alpha2
 	u=(alpha1 * alpha2) / p
@@ -53,6 +45,4 @@ function Sij(basis1::Basis, basis2::Basis)
 	end
 
 	return S_total
-end
-
 end

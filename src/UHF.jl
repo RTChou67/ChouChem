@@ -1,15 +1,3 @@
-using LinearAlgebra
-using Printf
-using Dates
-
-
-using .Definitions: PGTF, CGTF, Basis, Atom
-using .GetBasisList: generate_basis_list
-using .CalcS: Sij
-using .CalcT: Tij
-using .CalcV: Vij
-using .CalcG: Gijkl
-
 module UHF_DIIS
 using LinearAlgebra
 export DIISController, insert!, extrapolate
@@ -20,7 +8,7 @@ struct DIISController
 	FockListBeta::Vector{Matrix{Float64}}
 	ErrList::Vector{Matrix{Float64}}
 
-	function DIISController(MaxSize::Int = 8)
+	function DIISController(MaxSize::Int = 10)
 		new(MaxSize, [], [], [])
 	end
 end
@@ -62,20 +50,6 @@ end
 
 end
 
-
-module UHF
-using LinearAlgebra
-using Printf
-using ..Definitions: Atom, CGTF, Basis
-using ..UHF_DIIS
-using ..GetBasisList: generate_basis_list
-using ..CalcS: Sij
-using ..CalcT: Tij
-using ..CalcV: Vij
-using ..CalcG: Gijkl
-
-export SCF, UHFResults
-
 struct UHFResults
 	Molecule::Vector{Atom}
 	BasisSet::Vector{Basis}
@@ -97,28 +71,8 @@ end
 
 
 
-function CalcMatrices(BasisSet, Molecule)
-	BNum = length(BasisSet)
-	TimeS1=time_ns()
-	S = [Sij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
-	TimeS2=time_ns()
-	println("Calculation for S Matrix took $( (TimeS2-TimeS1)/1e6 ) ms")
-	TimeT1=time_ns()
-	T = [Tij(BasisSet[i], BasisSet[j]) for i in 1:BNum, j in 1:BNum]
-	TimeT2=time_ns()
-	println("Calculation for T Matrix took $( (TimeT2-TimeT1)/1e6 ) ms")
-	TimeV1=time_ns()
-	V = [Vij(BasisSet[i], BasisSet[j], Molecule) for i in 1:BNum, j in 1:BNum]
-	TimeV2=time_ns()
-	println("Calculation for V Matrix took $( (TimeV2-TimeV1)/1e6 ) ms")
-	TimeERI1=time_ns()
-	ERI = [Gijkl(BasisSet[i], BasisSet[j], BasisSet[k], BasisSet[l]) for i in 1:BNum, j in 1:BNum, k in 1:BNum, l in 1:BNum]
-	TimeERI2=time_ns()
-	println("Calculation for ERI Tensor took $( (TimeERI2-TimeERI1)/1e6 ) ms")
-	return S, T, V, ERI
-end
 
-function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 100, Threshold = 1e-10)
+function UHF_SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 100, Threshold = 1e-10)
 	BasisSet = generate_basis_list(Molecule)
 	BNum = length(BasisSet)
 	ENum = sum(atom.Z for atom in Molecule) - charge
@@ -198,6 +152,36 @@ function SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter = 1
 	return nothing
 end
 
+
+function RunUHF(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int)
+	TStart=time_ns()
+
+
+	Bohr2Ang = 0.52917721092
+	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
+
+	@printf("\n--- Molecular Structure ---\n")
+	for atom in MolInAng
+		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
+	end
+	println("---------------------------\n")
+
+	SCF_Results=UHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
+	if isnothing(SCF_Results)
+		error("UHF calculation did not converge. Aborting.")
+		return
+	end
+
+
+
+	TEnd=time_ns()
+	TSeconds = (TEnd - TStart) / 1e9
+	days = floor(Int, TSeconds / 86400)
+	hours = floor(Int, (TSeconds % 86400) / 3600)
+	minutes = floor(Int, (TSeconds % 3600) / 60)
+	seconds = TSeconds % 60
+	DateTime = Dates.format(now(), "e u dd HH:MM:SS yyyy")
+	@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
+	println(" Normal termination of Julia UHF at $(DateTime).")
 end
-
-

@@ -1,23 +1,3 @@
-module CalcG
-
-using ..Definitions: PGTF, Basis
-using SpecialFunctions: binomial, gamma
-using Base.Threads
-
-export CalcERI
-
-function boys(m::Int, x::Float64)
-	if x == 0.0
-		return 1.0 / (2m + 1)
-	end
-	if x < 1e-8
-		return 1.0 / (2m + 1) - x / (2m + 3)
-	end
-	s = m + 0.5
-	return 0.5 * x^(-s) * (gamma(s) - gamma(s, x))
-end
-
-
 function Hij_1D(Idx, l1::Int64, l2::Int64, R1D1::Float64, R1D2::Float64, alpha1::Float64, alpha2::Float64)
 	p=alpha1+alpha2
 	u = (alpha1 * alpha2) / p
@@ -116,19 +96,15 @@ function Gijkl(basis1::Basis, basis2::Basis, basis3::Basis, basis4::Basis)
 	PGTFs2=basis2.GTFs
 	PGTFs3=basis3.GTFs
 	PGTFs4=basis4.GTFs
-
 	for pgtf1 in PGTFs1
 		coeff1 = pgtf1.coeff
 		norm1 = pgtf1.norms
-
 		for pgtf2 in PGTFs2
 			coeff2 = pgtf2.coeff
 			norm2 = pgtf2.norms
-
 			for pgtf3 in PGTFs3
 				coeff3 = pgtf3.coeff
 				norm3 = pgtf3.norms
-
 				for pgtf4 in PGTFs4
 					coeff4 = pgtf4.coeff
 					norm4 = pgtf4.norms
@@ -139,10 +115,4 @@ function Gijkl(basis1::Basis, basis2::Basis, basis3::Basis, basis4::Basis)
 		end
 	end
 	return eri
-
-end
-
-
-
-
 end
