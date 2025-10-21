@@ -42,3 +42,24 @@ function CalcMatrices(BasisSet, Molecule)
 	println("Calculation for ERI Tensor took $( (TimeERI2-TimeERI1)/1e6 ) ms")
 	return S, T, V, ERI
 end
+
+
+
+function RHF2UHF(rhf::RHFResults)
+	return UHFResults(
+		rhf.Molecule,
+		rhf.BasisSet,
+		rhf.ENum ÷ 2,
+		rhf.ENum ÷ 2,
+		rhf.S,
+		rhf.Hcore,
+		rhf.ERI,
+		rhf.C,
+		rhf.C,
+		rhf.E,
+		rhf.E,
+		rhf.Ee,
+		rhf.VNN,
+		rhf.Etot,
+	)
+end

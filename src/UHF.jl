@@ -129,15 +129,12 @@ function UHF_SCF(Molecule::Vector{Atom}, charge::Int, multiplicity::Int; MaxIter
 		VNN = sum(Molecule[i].Z * Molecule[j].Z / norm(Molecule[i].position .- Molecule[j].position) for i in 1:length(Molecule) for j in (i+1):length(Molecule))
 		Ee = 0.5 * sum(PAlpha .* (Hcore + FAlpha)) + 0.5 * sum(PBeta .* (Hcore + FBeta))
 		Etot = Ee + VNN
-
 		delta_E = abs(Etot - Etot_old)
 		delta_P = max(sqrt(sum((PnewAlpha - PAlpha) .^ 2)), sqrt(sum((PnewBeta - PBeta) .^ 2)))
 		@printf("Iteration %3d: E = %-16.10f  ΔE = %-12.2e  ΔP = %.2e\n", i, Etot, delta_E, delta_P)
-
 		PAlpha = PnewAlpha
 		PBeta = PnewBeta
 		Etot_old = Etot
-
 		if delta_E < Threshold && delta_P < Threshold
 			println("\nSCF converged in $i iterations.")
 			@printf("\n--- Final Energy Results ---\n")
@@ -155,25 +152,18 @@ end
 
 function RunUHF(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int)
 	TStart=time_ns()
-
-
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
-
 	@printf("\n--- Molecular Structure ---\n")
 	for atom in MolInAng
 		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
 	end
 	println("---------------------------\n")
-
 	SCF_Results=UHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
 	if isnothing(SCF_Results)
 		error("UHF calculation did not converge. Aborting.")
 		return
 	end
-
-
-
 	TEnd=time_ns()
 	TSeconds = (TEnd - TStart) / 1e9
 	days = floor(Int, TSeconds / 86400)
@@ -184,4 +174,5 @@ function RunUHF(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int)
 	@printf(" Job cpu time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
 	@printf(" Elapsed time:       %d days %2d hours %2d minutes %5.1f seconds.\n", days, hours, minutes, seconds)
 	println(" Normal termination of Julia UHF at $(DateTime).")
+	return SCF_Results
 end

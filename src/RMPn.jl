@@ -70,13 +70,13 @@ function RMPn(RHF_Results::RHFResults, order::Int)
 	end
 end
 
-function RunRMPn(MolInAng::Vector{Atom}, Charge::Int, order::Int)
+function RunRMPn(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, order::Int)
 	TStart=time_ns()
 
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
 
-	RHF_Results = RHF_SCF(Molecule, Charge; MaxIter = 100, Threshold = 1e-8)
+	RHF_Results = RHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-8)
 
 	if RHF_Results !== nothing
 		println("RHF Calculation Successful. Proceeding to MPn.")
@@ -98,7 +98,7 @@ function RunRMPn(MolInAng::Vector{Atom}, Charge::Int, order::Int)
 			println(" Normal termination of Julia RMPn at $(DateTime).")
 		end
 		println("-------------------------\n")
-
+		return (Etot = MPn_Results.E_RMP2_total,)
 	else
 		println("RHF calculation failed to converge. Cannot perform MPn calculation.")
 	end

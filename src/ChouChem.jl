@@ -8,7 +8,7 @@ using Quadmath
 using SpecialFunctions
 
 include("Definitions.jl")
-include("MathFunctions.jl")
+
 
 include("CalcS.jl")
 include("CalcT.jl")
@@ -19,6 +19,7 @@ include("GetBasisList.jl")
 
 include("RHF.jl")
 include("UHF.jl")
+include("Functions.jl")
 include("RMPn.jl")
 include("CI.jl")
 
@@ -26,7 +27,8 @@ include("CI.jl")
 export RunRHF
 export RunUHF
 export RunRMPn
-export RunCI
+export RunUCI
+export RunRCI
 
 export Atom, Basis, CGTF, PGTF
 export generate_basis_list
