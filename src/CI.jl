@@ -147,9 +147,9 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	HcoreBetaMO=CBeta'*Hcore*CBeta
 	hMO=[HcoreAlphaMO zeros(ONum, ONum); zeros(ONum, ONum) HcoreBetaMO]
 	println("\nTransforming ERIs to MO basis...")
-	ERI_aaaa=TransERI(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha, ONum)
-	ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta, ONum)
-	ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta, ONum)
+	@time ERI_aaaa=TransERI(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha, ONum)
+	@time ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta, ONum)
+	@time ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta, ONum)
 	println("ERI transformation complete.")
 	OccAlpha=1:ENumAlpha
 	OccBeta=(ONum+1):(ONum+ENumBeta)
@@ -164,7 +164,40 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	Determinants=GenCISpace(RefDeterminants, 1:SONum, MaxExcitation)
 	@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
 	println("\nBuilding and diagonalizing CI Matrix...")
-	CI_Matrix = [CalcCIHij(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
+	Ndet = length(Determinants)
+	I = Int[]
+	J = Int[]
+	V = Float64[]
+	S_Sets = [Set(det) for det in Determinants]
+	for i in 1:Ndet
+		S1Set = S_Sets[i]
+		for j in i:Ndet
+			S2Set = S_Sets[j]
+			Diff_i_j = length(setdiff(S1Set, S2Set))
+			if Diff_i_j <= 2
+				Diff_j_i = length(setdiff(S2Set, S1Set))
+				NDiff = Diff_i_j
+				if Diff_i_j != Diff_j_i
+					continue
+				end
+				hij = CalcCIHij(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb)
+				if abs(hij) > 1e-12
+					push!(I, i)
+					push!(J, j)
+					push!(V, hij)
+					if i != j
+						push!(I, j)
+						push!(J, i)
+						push!(V, hij)
+					end
+				end
+			end
+		end
+	end
+
+
+	println("Constructing sparse matrix from $(length(V)) triplets...")
+	CI_Matrix = sparse(I, J, V, Ndet, Ndet)
 	E_CI, C_CI = eigs(CI_Matrix)
 	println("CI Matrix diagonalization complete.")
 	Ee_CI = E_CI[1]
