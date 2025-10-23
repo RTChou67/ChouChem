@@ -10,7 +10,32 @@ struct CIResults
 end
 
 function TransERI(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64}, ONum::Int)
-	return [sum(c1[i, p] * c2[j, q] * c3[k, r] * c4[l, s] * ERI_AO[i, j, k, l] for i in 1:ONum, j in 1:ONum, k in 1:ONum, l in 1:ONum) for p in 1:ONum, q in 1:ONum, r in 1:ONum, s in 1:ONum]
+	N = ONum
+	M_AO = reshape(ERI_AO, (N, N*N*N))
+
+	M_tmp1 = zeros(N, N*N*N)
+	mul!(M_tmp1, c1', M_AO)
+	tmp_pjkl = reshape(M_tmp1, (N, N, N, N))
+	tmp_pjkl_perm = permutedims(tmp_pjkl, (1, 3, 4, 2))
+	M_tmp1_perm = reshape(tmp_pjkl_perm, (N*N*N, N))
+
+	M_tmp2 = zeros(N*N*N, N)
+	mul!(M_tmp2, M_tmp1_perm, c2)
+	tmp_pqkl_perm = reshape(M_tmp2, (N, N, N, N))
+	tmp_pqkl = permutedims(tmp_pqkl_perm, (1, 4, 2, 3))
+	tmp_pqkl_perm = permutedims(tmp_pqkl, (1, 2, 4, 3))
+	M_tmp2_perm = reshape(tmp_pqkl_perm, (N*N*N, N))
+
+	M_tmp3 = zeros(N*N*N, N)
+	mul!(M_tmp3, M_tmp2_perm, c3)
+	tmp_pqrl_perm = reshape(M_tmp3, (N, N, N, N))
+	tmp_pqrl = permutedims(tmp_pqrl_perm, (1, 2, 4, 3))
+	M_tmp3_perm = reshape(tmp_pqrl, (N*N*N, N))
+
+	ERI_MO_M = zeros(N*N*N, N)
+	mul!(ERI_MO_M, M_tmp3_perm, c4)
+	ERI_MO = reshape(ERI_MO_M, (N, N, N, N))
+	return ERI_MO
 end
 
 
@@ -198,7 +223,9 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 
 	println("Constructing sparse matrix from $(length(V)) triplets...")
 	CI_Matrix = sparse(I, J, V, Ndet, Ndet)
-	E_CI, C_CI = eigs(CI_Matrix)
+	println("Ndet = $Ndet, nnz = $(nnz(CI_Matrix)), issymmetric = $(issymmetric(Matrix(CI_Matrix)))")
+
+	E_CI, C_CI = eigs(CI_Matrix, nev = 20, which = :SR)
 	println("CI Matrix diagonalization complete.")
 	Ee_CI = E_CI[1]
 	VNN_CI = VNN_UHF
