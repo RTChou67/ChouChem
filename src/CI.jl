@@ -79,7 +79,7 @@ function GenCISpace(RefDet::Vector{Int}, OrbRange::UnitRange{Int}, MaxExcit::Int
 	VirOrbs = collect(setdiff(Set(collect(OrbRange)), Set(OccOrbs)))
 	println("\n--- Excitation Analysis ---")
 	DetAllLvl = Set([SortedRefDet])
-	@printf("Number of 0-fold excitations: %d\n", 1)
+	@printf("Number of 0 -fold excitations: %d\n", 1)
 	for Lvl in 1:MaxExcit
 		if Lvl > length(OccOrbs) || Lvl > length(VirOrbs)
 			@printf("Max excitation level (%d) reached capacity at Lvl=%d. Stopping.\n", MaxExcit, Lvl-1)

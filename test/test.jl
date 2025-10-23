@@ -2,6 +2,7 @@ using Pkg
 Pkg.activate("..")
 
 using ChouChem
+using BenchmarkTools
 
 function mkMol(Coord, BasisSet::String)
 	Mol = Vector{Atom}()
@@ -23,12 +24,17 @@ H2OCoord=[
 	("H", 1, (0.0000, -1.0000, 0.8000)),
 ]
 
+
+
+
 HFSTO3G=mkMol(HFCoord, "STO-3G")
 HF631G=mkMol(HFCoord, "6-31G")
 H2OSTO3G=mkMol(H2OCoord, "STO-3G")
 H2O631G=mkMol(H2OCoord, "6-31G")
 
-
+res = @benchmark RunRCI(H2O631G, 0, 1, 2)
+println(res)
+#=
 HFSTO3G_RHF=RunRHF(HFSTO3G, 0, 1)
 if HFSTO3G_RHF==nothing
 	error("RHF calculation failed for HF with STO-3G basis set")
@@ -112,3 +118,7 @@ H2O631G_RCI=RunRCI(H2O631G, 0, 1, 2)
 if H2O631G_RCI==nothing
 	error("RCI calculation failed for H2O with 6-31G basis set")
 end
+
+
+println("All tests passed successfully!")
+=#
