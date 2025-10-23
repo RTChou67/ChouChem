@@ -93,7 +93,7 @@ function RHF_SCF(Molecule::Vector{Atom}, Multiplicity::Int, charge::Int; MaxIter
 		@printf("Iteration %3d: E = %-16.10f  ΔE = %-12.2e  ΔP = %.2e\n", i, Etot, delta_E, delta_P)
 		P = Pnew
 		Etot_old = Etot
-		if delta_E < Threshold || delta_P < Threshold
+		if delta_E < Threshold && delta_P < Threshold
 			println("\nSCF converged in $i iterations.")
 			@printf("\n--- Final Energy Results ---\n")
 			@printf("Electronic Energy = %.10f Hartree\n", Ee)

@@ -9,7 +9,9 @@ struct CIResults
 	NumberOfDeterminants::Int
 end
 
-function TransERI(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64}, ONum::Int)
+
+
+function TransERI_blas(ERI_AO::Array{Float64, 4}, c1::Matrix{Float64}, c2::Matrix{Float64}, c3::Matrix{Float64}, c4::Matrix{Float64}, ONum::Int)
 	N = ONum
 	M_AO = reshape(ERI_AO, (N, N*N*N))
 
@@ -114,20 +116,14 @@ end
 function GetPhase(S1::Vector{Int}, p::Int, q::Int, r::Int, s::Int)
 	PositionP = findfirst(==(p), S1)
 	PositionQ = findfirst(==(q), S1)
-	PhaseAnnihilate = (-1)^(PositionP + PositionQ)
 	S2 = sort(vcat(collect(setdiff(S1, [p, q])), [r, s]))
 	PositionR = findfirst(==(r), S2)
 	PositionS = findfirst(==(s), S2)
-	PhaseCreate = (-1)^(PositionR + PositionS)
-	return PhaseAnnihilate * PhaseCreate
+	Phase = (-1)^(PositionP + PositionQ + PositionR + PositionS)
+	return Phase
 end
 
-function CalcCIHij(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, ONum::Int, ERI_aaaa, ERI_bbbb, ERI_aabb)
-	S1Set=Set(S1)
-	S2Set=Set(S2)
-	Diff1=sort(collect(setdiff(S1Set, S2Set)))
-	Diff2=sort(collect(setdiff(S2Set, S1Set)))
-	NDiff=length(Diff1)
+function CalcCIHij(S1::Vector{Int64}, S2::Vector{Int64}, NDiff::Int, Diff1::Vector{Int}, Diff2::Vector{Int}, hMO::Matrix{Float64}, ONum::Int, ERI_aaaa, ERI_bbbb, ERI_aabb)
 	if NDiff > 2
 		return 0.0
 	elseif NDiff == 0
@@ -140,15 +136,19 @@ function CalcCIHij(S1::Vector{Int64}, S2::Vector{Int64}, hMO::Matrix{Float64}, O
 		PPos = findfirst(==(p), S1)
 		QPos = findfirst(==(q), S2)
 		Phase = (-1)^(PPos + QPos)
-		OrbCommon=sort(collect(intersect(S1Set, S2Set)))
-		E1e=hMO[p, q]
+
+		S1Set = Set(S1)
+		OrbCommon = sort(collect(setdiff(S1Set, Set(Diff1))))
+
+		E1e = hMO[p, q]
 		E2e = sum(GetERI(p, q, i, i, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) - GetERI(p, i, q, i, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in OrbCommon)
 		return (E1e + E2e)*Phase
+
 	elseif NDiff == 2
-		p, q=Diff1[1], Diff1[2]
-		r, s=Diff2[1], Diff2[2]
-		OrbCommon=sort(collect(intersect(S1Set, S2Set)))
-		Phase = GetPhase(S1, p, q, r, s)
+		p, q = Diff1[1], Diff1[2]
+		r, s = Diff2[1], Diff2[2]
+
+		Phase = GetPhase(S1, p, q, r, s) # [cite: 8]
 		return (GetERI(p, r, q, s, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) - GetERI(p, s, q, r, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb)) * Phase
 	end
 end
@@ -172,9 +172,9 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	HcoreBetaMO=CBeta'*Hcore*CBeta
 	hMO=[HcoreAlphaMO zeros(ONum, ONum); zeros(ONum, ONum) HcoreBetaMO]
 	println("\nTransforming ERIs to MO basis...")
-	@time ERI_aaaa=TransERI(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha, ONum)
-	@time ERI_bbbb=TransERI(ERI_AO, CBeta, CBeta, CBeta, CBeta, ONum)
-	@time ERI_aabb=TransERI(ERI_AO, CAlpha, CAlpha, CBeta, CBeta, ONum)
+	@time ERI_aaaa=TransERI_blas(ERI_AO, CAlpha, CAlpha, CAlpha, CAlpha, ONum)
+	@time ERI_bbbb=TransERI_blas(ERI_AO, CBeta, CBeta, CBeta, CBeta, ONum)
+	@time ERI_aabb=TransERI_blas(ERI_AO, CAlpha, CAlpha, CBeta, CBeta, ONum)
 	println("ERI transformation complete.")
 	OccAlpha=1:ENumAlpha
 	OccBeta=(ONum+1):(ONum+ENumBeta)
@@ -196,16 +196,18 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	S_Sets = [Set(det) for det in Determinants]
 	for i in 1:Ndet
 		S1Set = S_Sets[i]
+		S1 = Determinants[i]
 		for j in i:Ndet
 			S2Set = S_Sets[j]
-			Diff_i_j = length(setdiff(S1Set, S2Set))
-			if Diff_i_j <= 2
-				Diff_j_i = length(setdiff(S2Set, S1Set))
-				NDiff = Diff_i_j
-				if Diff_i_j != Diff_j_i
+			S2 = Determinants[j]
+			Diff1 = sort(collect(setdiff(S1Set, S2Set)))
+			NDiff = length(Diff1)
+			if NDiff<=2
+				Diff2 = sort(collect(setdiff(S2Set, S1Set)))
+				if NDiff != length(Diff2)
 					continue
 				end
-				hij = CalcCIHij(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb)
+				hij = CalcCIHij(S1, S2, NDiff, Diff1, Diff2, hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb)
 				if abs(hij) > 1e-12
 					push!(I, i)
 					push!(J, j)
@@ -223,9 +225,7 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 
 	println("Constructing sparse matrix from $(length(V)) triplets...")
 	CI_Matrix = sparse(I, J, V, Ndet, Ndet)
-	println("Ndet = $Ndet, nnz = $(nnz(CI_Matrix)), issymmetric = $(issymmetric(Matrix(CI_Matrix)))")
-
-	E_CI, C_CI = eigs(CI_Matrix, nev = 20, which = :SR)
+	E_CI, C_CI = eigs(CI_Matrix, nev = 30, which = :SR)
 	println("CI Matrix diagonalization complete.")
 	Ee_CI = E_CI[1]
 	VNN_CI = VNN_UHF
