@@ -3,9 +3,11 @@ module ChouChem
 using LinearAlgebra
 using Printf
 using Combinatorics
+using BenchmarkTools
 using Dates
-using Quadmath
 using SpecialFunctions
+using Arpack
+using SparseArrays
 
 include("Definitions.jl")
 
