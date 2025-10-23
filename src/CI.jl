@@ -165,7 +165,7 @@ function CalcUCI(SCF_Results::UHFResults, MaxExcitation::Int)
 	@printf("Number of determinants in the final CI space: %d\n", length(Determinants))
 	println("\nBuilding and diagonalizing CI Matrix...")
 	CI_Matrix = [CalcCIHij(Determinants[i], Determinants[j], hMO, ONum, ERI_aaaa, ERI_bbbb, ERI_aabb) for i in eachindex(Determinants), j in eachindex(Determinants)]
-	E_CI, C_CI = eigen(CI_Matrix)
+	E_CI, C_CI = eigs(CI_Matrix)
 	println("CI Matrix diagonalization complete.")
 	Ee_CI = E_CI[1]
 	VNN_CI = VNN_UHF
