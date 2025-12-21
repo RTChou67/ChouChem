@@ -1,17 +1,27 @@
 antisym(G_MO, p, q, r, s) = G_MO[p, q, r, s] - G_MO[p, q, s, r]
 
 function TransG(G_AO::Array{Float64, 4}, C::Matrix{Float64})
-	NMO = size(C, 2)
-
-	println("\n--- Starting Integral Transformation ---")
-	G_MO = zeros(NMO, NMO, NMO, NMO)
-	for p in 1:NMO, q in 1:NMO, r in 1:NMO, s in 1:NMO
-		for a in 1:NMO, b in 1:NMO, c in 1:NMO, d in 1:NMO
-			G_MO[p, q, r, s] += C[a, p] * C[b, q] * C[c, r] * C[d, s] * G_AO[a, b, c, d]
-		end
-	end
-	println("--- Integral Transformation Completed ---\n")
-	return G_MO
+    NBasis = size(C, 1) 
+    NMO = size(C, 2)
+    println("\n--- Starting Integral Transformation ---")
+    G_tmp1 = zeros(NMO, NBasis * NBasis * NBasis)
+    mul!(G_tmp1, C', reshape(G_AO, (NBasis, NBasis * NBasis * NBasis)))
+    tmp_tensor_1 = reshape(G_tmp1, (NMO, NBasis, NBasis, NBasis))
+    permuted_1 = permutedims(tmp_tensor_1, (2, 3, 4, 1))
+    G_tmp2 = zeros(NMO, NBasis * NBasis * NMO)
+    mul!(G_tmp2, C', reshape(permuted_1, (NBasis, NBasis * NBasis * NMO)))
+    tmp_tensor_2 = reshape(G_tmp2, (NMO, NBasis, NBasis, NMO))
+    permuted_2 = permutedims(tmp_tensor_2, (2, 3, 4, 1))
+    G_tmp3 = zeros(NMO, NBasis * NMO * NMO)
+    mul!(G_tmp3, C', reshape(permuted_2, (NBasis, NBasis * NMO * NMO)))
+    tmp_tensor_3 = reshape(G_tmp3, (NMO, NBasis, NMO, NMO))
+    permuted_3 = permutedims(tmp_tensor_3, (2, 3, 4, 1))
+    G_MO_flat = zeros(NMO, NMO * NMO * NMO)
+    mul!(G_MO_flat, C', reshape(permuted_3, (NBasis, NMO * NMO * NMO)))
+    G_MO_perm = reshape(G_MO_flat, (NMO, NMO, NMO, NMO))
+    G_MO = permutedims(G_MO_perm, (2, 3, 4, 1))
+    println("--- Integral Transformation Completed ---\n")
+    return G_MO
 end
 
 function CalcRMP2(G_MO::Array{Float64, 4}, E_MO::Vector{Float64}, NOcc::Int)
