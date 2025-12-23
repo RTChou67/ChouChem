@@ -54,10 +54,10 @@ struct RHFResults
 	Etot::Float64
 end
 
-function RHF_SCF(Molecule::Vector{Atom}, Multiplicity::Int, charge::Int; MaxIter = 100, Threshold = 1e-10)
+function RHF_SCF(Molecule::Vector{Atom}, Charge::Int,	Multiplicity::Int; MaxIter = 100, Threshold = 1e-10)
 	BasisSet = generate_basis_list(Molecule)
 	BNum = length(BasisSet)
-	ENum = sum(atom.Z for atom in Molecule) - charge
+	ENum = sum(atom.Z for atom in Molecule) - Charge
 	Nocc = ENum ÷ 2
 	println("--- System Information ---")
 	@printf("Basis functions: %d\n", BNum)
@@ -116,7 +116,7 @@ function RunRHF(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int)
 		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
 	end
 	println("---------------------------\n")
-	SCF_Results = RHF_SCF(Molecule, Multiplicity, Charge, MaxIter = 100, Threshold = 1e-8)
+	SCF_Results = RHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-8)
 	if isnothing(SCF_Results)
 		error("RHF calculation did not converge. Aborting.")
 		return

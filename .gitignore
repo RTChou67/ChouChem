@@ -1,6 +1,8 @@
 *.gbs
 *.gjf
 *.out
+*.chk
+examples/
 p/
 _minted/
 Manual/
