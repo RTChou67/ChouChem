@@ -54,7 +54,7 @@ struct RHFResults
 	Etot::Float64
 end
 
-function RHF_SCF(Molecule::Vector{Atom}, Charge::Int,	Multiplicity::Int; MaxIter = 100, Threshold = 1e-10)
+function RHF_SCF(Molecule::Vector{Atom}, Charge::Int,	Multiplicity::Int; MaxIter = 100, Threshold = 1e-8)
 	BasisSet = generate_basis_list(Molecule)
 	BNum = length(BasisSet)
 	ENum = sum(atom.Z for atom in Molecule) - Charge

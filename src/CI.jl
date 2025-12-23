@@ -258,7 +258,7 @@ function RunUCI(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcit
 		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
 	end
 	println("---------------------------\n")
-	SCF_Results=UHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-10)
+	SCF_Results=UHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 128, Threshold = 1e-8)
 	if isnothing(SCF_Results)
 		error("UHF calculation did not converge. Aborting.")
 		return
@@ -306,7 +306,7 @@ function RunRCI(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, MaxExcit
 		@printf("Atom: %-2s at (%8.4f, %8.4f, %8.4f) Å\n", atom.symbol, atom.position...)
 	end
 	println("---------------------------\n")
-	SCF_Results=RHF2UHF(RHF_SCF(Molecule, Charge, Multiplicity; MaxIter = 128, Threshold = 1e-10))
+	SCF_Results=RHF2UHF(RHF_SCF(Molecule, Charge, Multiplicity; MaxIter = 128, Threshold = 1e-8))
 	if isnothing(SCF_Results)
 		error("RHF calculation did not converge. Aborting.")
 		return

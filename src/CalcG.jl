@@ -61,17 +61,17 @@ function GijklPrim(ptgf1::PGTF, ptgf2::PGTF, ptgf3::PGTF, ptgf4::PGTF, basis1::B
 	l4=basis4.Type
 	I1=0.0
 	for t in 0:(l1[1]+l2[1])
+		E1x=Hij_1D(t, l1[1], l2[1], R1[1], R2[1], alpha1, alpha2)
 		for u in 0:(l1[2]+l2[2])
+			E1y=Hij_1D(u, l1[2], l2[2], R1[2], R2[2], alpha1, alpha2)
 			for v in 0:(l1[3]+l2[3])
-				E1x=Hij_1D(t, l1[1], l2[1], R1[1], R2[1], alpha1, alpha2)
-				E1y=Hij_1D(u, l1[2], l2[2], R1[2], R2[2], alpha1, alpha2)
 				E1z=Hij_1D(v, l1[3], l2[3], R1[3], R2[3], alpha1, alpha2)
 				E1=E1x*E1y*E1z
 				for tau in 0:(l3[1]+l4[1])
+					E2x=Hij_1D(tau, l3[1], l4[1], R3[1], R4[1], alpha3, alpha4)
 					for niu in 0:(l3[2]+l4[2])
+						E2y=Hij_1D(niu, l3[2], l4[2], R3[2], R4[2], alpha3, alpha4)
 						for phi in 0:(l3[3]+l4[3])
-							E2x=Hij_1D(tau, l3[1], l4[1], R3[1], R4[1], alpha3, alpha4)
-							E2y=Hij_1D(niu, l3[2], l4[2], R3[2], R4[2], alpha3, alpha4)
 							E2z=Hij_1D(phi, l3[3], l4[3], R3[3], R4[3], alpha3, alpha4)
 							E2=E2x*E2y*E2z
 							I1+=(-1)^(tau+niu+phi)*E1*E2*RtuvG(t+tau, u+niu, v+phi, 0, ptgf1, ptgf2, ptgf3, ptgf4, R1, R2, R3, R4)
