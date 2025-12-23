@@ -86,7 +86,7 @@ function RunRMPn(MolInAng::Vector{Atom}, Charge::Int, Multiplicity::Int, order::
 	Bohr2Ang = 0.52917721092
 	Molecule = [Atom(atom.symbol, atom.Z, atom.basis_set, atom.position ./ Bohr2Ang) for atom in MolInAng]
 
-	RHF_Results = RHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-8)
+	RHF_Results = RHF_SCF(Molecule, Charge, Multiplicity, MaxIter = 100, Threshold = 1e-10)
 
 	if RHF_Results !== nothing
 		println("RHF Calculation Successful. Proceeding to MPn.")
