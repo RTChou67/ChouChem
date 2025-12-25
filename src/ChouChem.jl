@@ -6,7 +6,6 @@ using Combinatorics
 using BenchmarkTools
 using Dates
 using SpecialFunctions
-using Arpack
 using SparseArrays
 
 include("Definitions.jl")
